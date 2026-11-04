@@ -8,5 +8,6 @@ ENVIRONMENT = "production"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "blucher_tracker_d1"
-database_id = "blucher-tracker-d1-local"
+database_name = "blucher-project-tracker-db"
+database_id = "f6190bb5-c9b1-4b7e-b360-290d7119213b"
+

@@ -4,6 +4,13 @@
  */
 
 // =============================================================================
+// API BASE URL CONFIGURATION (Auto-switch between Localhost and Cloudflare Worker)
+// =============================================================================
+const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.port === '3000'))
+  ? ''
+  : 'https://blucher-project-tracker.natt-charoen.workers.dev';
+
+// =============================================================================
 // 1. MASTER REAL REFERENCE DATASET (7 SITES EXTRACTED FROM DESKTOP WORKBOOKS)
 // =============================================================================
 const MASTER_PROJECTS = {
@@ -790,7 +797,7 @@ document.addEventListener("DOMContentLoaded", async () => {
  */
 async function initBootstrapData() {
   try {
-    const res = await fetch("/api/bootstrap", { method: "GET" });
+    const res = await fetch(`${API_BASE}/api/bootstrap`, { method: "GET" });
     if (res.ok) {
       const data = await res.json();
       if (data && data.projects) {
@@ -1855,7 +1862,7 @@ async function toggleBotEtiquette(isVocal) {
   updateBotEtiquetteUI();
 
   try {
-    await fetch("/api/settings", {
+    await fetch(`${API_BASE}/api/settings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ botEtiquette: appState.botEtiquette })
@@ -2013,7 +2020,7 @@ function switchAssistantTab(tabName) {
 
 async function generateAbdulReply(query) {
   try {
-    const res = await fetch("/api/chat", {
+    const res = await fetch(`${API_BASE}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2023,7 +2030,7 @@ async function generateAbdulReply(query) {
     });
     if (res.ok) {
       const data = await res.json();
-      if (data && data.reply) return data.reply;
+      if (data && (data.reply || data.answer)) return data.reply || data.answer;
     }
   } catch (err) {}
 
@@ -2336,7 +2343,7 @@ function onOnboardFolderChange(val) {
 async function scanDesktopFolders() {
   showToast("กำลังสแกนหาโฟลเดอร์ใหม่บน Desktop...", "info");
   try {
-    const res = await fetch("/api/scan-desktop-folders");
+    const res = await fetch(`${API_BASE}/api/scan-desktop-folders`);
     if (res.ok) {
       const data = await res.json();
       if (data && data.folders) {

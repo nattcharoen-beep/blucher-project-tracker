@@ -95,10 +95,32 @@ export default {
 
     try {
       // ------------------------------------------------------------------
-      // 1. LINE Webhook Endpoint
+      // Root Health & Metadata Endpoint
       // ------------------------------------------------------------------
-      if (pathname === '/api/line-webhook' && method === 'POST') {
-        return await handleLineWebhook(request, env);
+      if (pathname === '/' && method === 'GET') {
+        return jsonResponse({
+          name: 'Blucher Project Tracker API',
+          status: 'online',
+          version: '1.0.0',
+          endpoints: [
+            '/api/bootstrap',
+            '/api/projects',
+            '/api/line-webhook',
+            '/webhook'
+          ]
+        });
+      }
+
+      // ------------------------------------------------------------------
+      // 1. LINE Webhook Endpoint (Supports both /api/line-webhook and /webhook)
+      // ------------------------------------------------------------------
+      if ((pathname === '/api/line-webhook' || pathname === '/webhook')) {
+        if (method === 'GET') {
+          return jsonResponse({ success: true, message: 'LINE Webhook endpoint is active' });
+        }
+        if (method === 'POST') {
+          return await handleLineWebhook(request, env);
+        }
       }
 
       // ------------------------------------------------------------------

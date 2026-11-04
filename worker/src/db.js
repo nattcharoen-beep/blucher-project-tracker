@@ -370,10 +370,10 @@ export async function initDatabase(d1) {
   ];
 
   for (const sql of tables) {
-    if (d1.exec) {
-      await d1.exec(sql);
-    } else {
+    try {
       await d1.prepare(sql).run();
+    } catch (err) {
+      // Ignore if table or index already exists
     }
   }
 
