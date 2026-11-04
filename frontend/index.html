@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blucher BuildTrack - Executive Project Tracker & 2-Way LINE AI Bot</title>
+  
+  <!-- Google Fonts: Prompt & Kanit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- SheetJS for Live Excel Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Tailwind Custom Configuration -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            prompt: ['Prompt', 'sans-serif'],
+            kanit: ['Kanit', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              800: '#0c4a6e',
+              900: '#082f49',
+              line: '#06c755',
+              navy: '#0b192c',
+              navylight: '#15263f'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased h-screen flex flex-col overflow-hidden font-prompt">
+
+  <!-- ========================================================================= -->
+  <!-- 1. TOP NAVIGATION & EXECUTIVE CONTROL BAR                                 -->
+  <!-- ========================================================================= -->
+  <header class="h-16 bg-[#0b192c] text-white px-3 sm:px-6 flex items-center justify-between flex-shrink-0 z-30 shadow-md border-b border-slate-800">
+    
+    <!-- Left: Brand Logo & Title -->
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-400 flex items-center justify-center text-white shadow-lg shadow-sky-950/60 ring-1 ring-white/20">
+        <i class="fa-solid fa-layer-group text-lg"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base sm:text-lg font-bold font-kanit tracking-wide text-white leading-tight">Blucher BuildTrack</h1>
+          <span class="px-2 py-0.5 text-[10px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-400/30 rounded-full hidden sm:inline">Executive SaaS</span>
+        </div>
+        <p class="text-[11px] text-slate-400 font-light hidden sm:block">ระบบติดตาม 7 โครงการก่อสร้าง & 2-Way LINE AI Bot "อับดุล"</p>
+      </div>
+    </div>
+
+    <!-- Center: Project Selector Dropdown -->
+    <div class="flex items-center gap-2 max-w-xs sm:max-w-md w-full justify-center">
+      <div class="relative w-full">
+        <i class="fa-solid fa-city absolute left-3.5 top-1/2 -translate-y-1/2 text-sky-400 text-xs pointer-events-none"></i>
+        <select id="projectSelector" onchange="onProjectSelectChange(this.value)" class="w-full bg-[#15263f] text-slate-100 text-xs sm:text-sm font-kanit font-medium rounded-xl pl-8 sm:pl-9 pr-8 py-2 border border-slate-700/80 focus:outline-none focus:ring-2 focus:ring-sky-400 appearance-none cursor-pointer shadow-inner transition-all hover:bg-[#1a2f4d]">
+          <option value="all">🏢 ภาพรวมทุกโครงการ (Portfolio Overview - 7 โครงการ)</option>
+          <optgroup label="── 7 โครงการบน Desktop ──">
+            <option value="prj-chatuchak">ศนท จตุจักร (ปรับปรุงสระว่ายน้ำ & Polyurea)</option>
+            <option value="prj-bangna">ศนท บางนา (พื้นยาง 900 ตร.ม. & เครื่องเล่นสนาม)</option>
+            <option value="prj-bangkae">ศนท บางแค (ระบบปรับอากาศ HVAC & หลังคา Tensile)</option>
+            <option value="prj-saphansung">ศนท สะพานสูง (งานฝ้าเพดาน & ทรายล้างรอบสระ)</option>
+            <option value="prj-lumpini">ศนท ลุมพินี (ซ่อมเพดาน Sika & ประปา Rough-In)</option>
+            <option value="prj-prachin">อบต ปราจีน (สนามเด็กเล่น EPDM 20mm 2.2M)</option>
+            <option value="prj-maehongson">พี่บอม แม่ฮ่องสอน (ลู่วิ่งยางสังเคราะห์ 13mm 6,800 ตร.ม.)</option>
+          </optgroup>
+        </select>
+        <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+      </div>
+    </div>
+
+    <!-- Right: Unified LINE Inbox, Bot Etiquette Toggle, Onboard Modal, Export -->
+    <div class="flex items-center gap-2 sm:gap-2.5">
+      
+      <!-- Unified LINE 7-Group Inbox Button -->
+      <button onclick="openAssistant('inbox')" class="flex items-center gap-1.5 px-3 py-1.5 bg-[#06c755]/15 hover:bg-[#06c755]/25 text-[#06c755] border border-[#06c755]/40 rounded-xl transition-all text-xs font-semibold font-kanit relative">
+        <i class="fa-brands fa-line text-sm"></i>
+        <span class="hidden md:inline">รวมแชท 7 กลุ่ม LINE</span>
+        <span class="w-4 h-4 rounded-full bg-[#06c755] text-white text-[10px] flex items-center justify-center font-bold">7</span>
+      </button>
+
+      <!-- Bot Etiquette Toggle Switch -->
+      <div class="hidden xl:flex items-center gap-2 bg-[#15263f] px-3 py-1.5 rounded-xl border border-slate-700/80" title="สลับโหมดมารยาทบอทในกลุ่ม LINE ไม่ให้พิมพ์กวน">
+        <span class="text-[11px] text-slate-300 font-medium flex items-center gap-1.5">
+          <i id="botModeIcon" class="fa-solid fa-volume-xmark text-amber-400"></i>
+          <span id="botModeLabel">บอทซุ่มจดเงียบ 100%</span>
+        </span>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="botEtiquetteToggle" onchange="toggleBotEtiquette(this.checked)" class="sr-only peer">
+          <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-sky-500"></div>
+        </label>
+      </div>
+
+      <!-- Button: Onboard New Project / Pair LINE Group -->
+      <button onclick="openOnboardModal()" class="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white text-xs font-semibold rounded-xl shadow-sm shadow-sky-950 transition-all font-kanit">
+        <i class="fa-solid fa-plus-circle"></i>
+        <span class="hidden lg:inline">เพิ่มโครงการ / ผูกกลุ่ม</span>
+      </button>
+
+      <!-- Dropdown Button: Export Excel / Print PDF -->
+      <div class="relative">
+        <button id="exportDropdownBtn" onclick="toggleExportMenu()" class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 transition-all">
+          <i class="fa-solid fa-file-export text-emerald-400"></i>
+          <span class="hidden sm:inline">Export</span>
+          <i class="fa-solid fa-caret-down text-[10px] text-slate-400"></i>
+        </button>
+        <!-- Dropdown Menu -->
+        <div id="exportMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 text-slate-700 z-50 text-xs font-medium">
+          <button onclick="exportToExcel()" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 text-slate-800">
+            <i class="fa-solid fa-file-excel text-emerald-600 text-sm"></i>
+            <span>ดาวน์โหลด Excel (.xlsx)</span>
+          </button>
+          <button onclick="exportToPdf()" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 text-slate-800 border-t border-slate-100">
+            <i class="fa-solid fa-print text-sky-600 text-sm"></i>
+            <span>สั่งพิมพ์รายงาน (PDF)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Webhook Pulse Status -->
+      <div class="hidden 2xl:flex items-center gap-2 pl-2 border-l border-slate-800">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+        </span>
+        <span class="text-[11px] text-emerald-400 font-medium">Webhook Online</span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 2. MAIN CONTAINER & VIEW SWITCHER                                         -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 overflow-y-auto bg-slate-100 custom-scrollbar p-3 sm:p-6 lg:p-8">
+    <div class="max-w-7xl mx-auto space-y-6">
+
+      <!-- ===================================================================== -->
+      <!-- VIEW 1: PORTFOLIO EXECUTIVE OVERVIEW (when projectSelector == 'all')  -->
+      <!-- ===================================================================== -->
+      <section id="viewPortfolio" class="space-y-6 transition-all duration-300">
+        
+        <!-- Welcome Executive Banner -->
+        <div class="bg-gradient-to-r from-[#0b192c] via-[#15263f] to-[#0c4a6e] rounded-2xl p-5 sm:p-6 text-white shadow-lg border border-slate-700/60 relative overflow-hidden">
+          <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+            <i class="fa-solid fa-building-shield text-[220px]"></i>
+          </div>
+          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Active Portfolio · 7 ไซต์งาน
+                </span>
+                <span class="text-xs text-slate-300 hidden sm:inline">| Blucher B2G Construction Intelligence</span>
+              </div>
+              <h2 class="text-xl sm:text-2xl md:text-3xl font-bold font-kanit tracking-tight text-white">
+                ภาพรวมสถานะ 7 โครงการก่อสร้าง บลูเคอร์
+              </h2>
+              <p class="text-xs sm:text-sm text-slate-300 font-light mt-1 max-w-2xl">
+                เชื่อมต่อระบบดักจับข้อมูลอัตโนมัติจากกลุ่ม LINE โครงการจริง และอ่านข้อมูลต้นทุน ปร.4 จากโฟลเดอร์บน Desktop โดยตรง
+              </p>
+            </div>
+            <div class="flex items-center gap-2.5 self-start md:self-auto">
+              <button onclick="refreshData()" class="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-xl border border-white/20 transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate text-sky-400"></i>
+                <span>รีเฟรชข้อมูล</span>
+              </button>
+              <button onclick="openAssistant('inbox')" class="px-4 py-2 bg-gradient-to-r from-[#06c755] to-emerald-400 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 font-kanit">
+                <i class="fa-brands fa-line text-sm"></i>
+                <span>เปิดดู 7 กลุ่ม LINE</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Top Executive KPI Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          <!-- Card 1: Active Projects & Contract Value -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 card-elevation">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-semibold text-slate-600 uppercase tracking-wider">มูลค่างานรวม (Portfolio)</p>
+              <div class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                <i class="fa-solid fa-sack-dollar text-base"></i>
+              </div>
+            </div>
+            <div class="mt-3 flex items-baseline gap-2">
+              <h3 id="portfolioTotalValue" class="text-2xl font-bold text-slate-900 font-kanit">41.33M</h3>
+              <span class="text-xs text-slate-600">บาท</span>
+            </div>
+            <div class="mt-2.5 flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-100">
+              <span class="flex items-center gap-1 text-emerald-600 font-medium">
+                <i class="fa-solid fa-circle-check"></i>
+                <span id="portfolioActiveCount">7 โครงการกำลังดำเนินการ</span>
+              </span>
+              <span id="portfolioTargetCost" class="text-[11px] text-slate-600">ต้นทุน 27.57M</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Overall Progress % vs Plan -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 card-elevation">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-semibold text-slate-600 uppercase tracking-wider">ความคืบหน้าเฉลี่ยทุกไซต์</p>
+              <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i class="fa-solid fa-bars-progress text-base"></i>
+              </div>
+            </div>
+            <div class="mt-3 flex items-baseline gap-2">
+              <h3 id="portfolioAvgProgress" class="text-2xl font-bold text-slate-900 font-kanit">68.9%</h3>
+              <span id="portfolioPlanDiff" class="text-xs font-medium text-amber-600">ช้ากว่าแผน 1.5%</span>
+            </div>
+            <!-- Progress Bar -->
+            <div class="mt-2.5 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div id="portfolioProgressBar" class="bg-gradient-to-r from-sky-500 to-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 68.9%"></div>
+            </div>
+          </div>
+
+          <!-- Card 3: Pending Action Items & Defects -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 card-elevation">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-semibold text-slate-600 uppercase tracking-wider">งานสั่งการ & Defect รอซ่อม</p>
+              <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                <i class="fa-solid fa-triangle-exclamation text-base"></i>
+              </div>
+            </div>
+            <div class="mt-3 flex items-baseline gap-2">
+              <h3 id="portfolioPendingTasks" class="text-2xl font-bold text-rose-600 font-kanit">8 <span class="text-sm font-normal text-slate-600">งาน</span></h3>
+              <span class="text-xs text-slate-600">| Defect รอซ่อม:</span>
+              <span id="portfolioOpenDefects" class="text-sm font-bold text-amber-600">6 จุด</span>
+            </div>
+            <div class="mt-2.5 flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-100">
+              <span class="text-[11px] text-slate-600">ดักจับจากกลุ่ม LINE อัตโนมัติ</span>
+              <span class="text-rose-500 font-medium text-[11px]">ด่วน 3 งาน</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Total Daily Manpower -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 card-elevation">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-semibold text-slate-600 uppercase tracking-wider">กำลังพลช่างทุกไซต์วันนี้</p>
+              <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <i class="fa-solid fa-users-gear text-base"></i>
+              </div>
+            </div>
+            <div class="mt-3 flex items-baseline gap-2">
+              <h3 id="portfolioTotalWorkers" class="text-2xl font-bold text-slate-900 font-kanit">38</h3>
+              <span class="text-xs text-slate-600">นาย (7 ไซต์)</span>
+            </div>
+            <div class="mt-2.5 flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-100">
+              <span class="text-emerald-600 font-medium flex items-center gap-1">
+                <i class="fa-solid fa-check"></i>
+                รายงานครบทุกไซต์
+              </span>
+              <span class="text-[11px] text-slate-600">สูงสุด: บางนา (8 นาย)</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 2 Chart Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Chart 1: Bar Chart of 7 Projects (Plan vs Actual) -->
+          <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200 card-elevation">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h4 class="text-sm font-bold font-kanit text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-chart-column text-sky-600"></i>
+                  เปรียบเทียบ % แผนงาน vs % ผลงานจริง (7 โครงการ)
+                </h4>
+                <p class="text-xs text-slate-600">อัปเดตตามรายงานและเอกสารล่าสุด</p>
+              </div>
+              <div class="flex items-center gap-3 text-xs font-medium">
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-slate-300"></span>แผนงาน (%)</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-sky-500"></span>ผลงานจริง (%)</span>
+              </div>
+            </div>
+            <div class="h-64 relative">
+              <canvas id="portfolioBarChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart 2: Donut Chart of Defects & Action Items Status -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 card-elevation flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-sm font-bold font-kanit text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie text-cyan-600"></i>
+                สัดส่วนสถานะงานสั่งการ & Defect
+              </h4>
+              <span class="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-600 rounded-md font-medium">รวม 28 รายการ</span>
+            </div>
+            <div class="h-48 relative flex items-center justify-center my-auto">
+              <canvas id="portfolioDonutChart"></canvas>
+            </div>
+            <div class="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 text-center text-xs">
+              <div class="bg-rose-50 p-2 rounded-xl">
+                <p class="text-rose-600 font-bold font-kanit text-base" id="statDefectOpen">6</p>
+                <p class="text-[10px] text-slate-600 font-medium">รอการแก้ไข</p>
+              </div>
+              <div class="bg-amber-50 p-2 rounded-xl">
+                <p class="text-amber-600 font-bold font-kanit text-base" id="statDefectInProgress">8</p>
+                <p class="text-[10px] text-slate-600 font-medium">กำลังซ่อม</p>
+              </div>
+              <div class="bg-emerald-50 p-2 rounded-xl">
+                <p class="text-emerald-600 font-bold font-kanit text-base" id="statDefectClosed">14</p>
+                <p class="text-[10px] text-slate-600 font-medium">เสร็จสิ้นแล้ว</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Portfolio Matrix Table (7 Sites Overview) -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden card-elevation">
+          <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+            <div>
+              <h4 class="text-base font-bold font-kanit text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-table-list text-sky-600"></i>
+                ตารางสรุปสถานะทั้ง 7 โครงการ (Portfolio Matrix)
+              </h4>
+              <p class="text-xs text-slate-600 mt-0.5">เชื่อมต่อโฟลเดอร์บน Desktop และกลุ่ม LINE ประจำแต่ละไซต์</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-xs"></i>
+                <input type="text" id="portfolioTableSearch" oninput="filterPortfolioTable(this.value)" placeholder="ค้นหาชื่อโครงการ หรือ สเปก..." class="pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 w-48 sm:w-64">
+              </div>
+            </div>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100/80 text-slate-600 uppercase font-semibold text-[11px] border-b border-slate-200">
+                <tr>
+                  <th class="py-3 px-4">โครงการ & โฟลเดอร์</th>
+                  <th class="py-3 px-3">การผูกกลุ่ม LINE</th>
+                  <th class="py-3 px-3">สเปกวัสดุหลัก</th>
+                  <th class="py-3 px-3 text-right">งบสัญญา</th>
+                  <th class="py-3 px-3 text-right">ต้นทุนจริง</th>
+                  <th class="py-3 px-4 min-w-[160px]">ความคืบหน้า (จริง vs แผน)</th>
+                  <th class="py-3 px-3 text-center">Defect</th>
+                  <th class="py-3 px-4 text-center">การกระทำ</th>
+                </tr>
+              </thead>
+              <tbody id="portfolioTableBody" class="divide-y divide-slate-100 text-slate-700">
+                <!-- Dynamically Rendered by app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ===================================================================== -->
+      <!-- VIEW 2: PROJECT DRILL-DOWN VIEW (when a specific project is selected) -->
+      <!-- ===================================================================== -->
+      <section id="viewProject" class="hidden space-y-6 transition-all duration-300">
+        
+        <!-- Project Hero Header Banner -->
+        <div class="bg-gradient-to-r from-[#0b192c] via-[#11243b] to-[#0369a1] rounded-2xl p-5 sm:p-6 text-white shadow-lg border border-slate-700/60 relative overflow-hidden">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+            
+            <!-- Left Info -->
+            <div class="space-y-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <button onclick="switchProject('all')" class="px-2.5 py-1 text-xs font-semibold bg-white/10 hover:bg-white/20 text-slate-200 rounded-lg transition-all flex items-center gap-1.5">
+                  <i class="fa-solid fa-arrow-left text-sky-400"></i>
+                  ภาพรวมทุกโครงการ
+                </button>
+                <span id="projBadgeStatus" class="px-2.5 py-1 text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  กำลังดำเนินการ
+                </span>
+                <span id="projLineGroupTag" class="px-2.5 py-1 text-xs font-medium bg-slate-800/80 text-sky-300 border border-slate-700 rounded-full flex items-center gap-1.5">
+                  <i class="fa-brands fa-line text-emerald-400"></i>
+                  ผูกกับกลุ่ม LINE แล้ว
+                </span>
+              </div>
+
+              <h2 id="projHeaderTitle" class="text-2xl sm:text-3xl font-bold font-kanit tracking-tight text-white">
+                ศนท จตุจักร
+              </h2>
+              <p id="projHeaderSubtitle" class="text-xs sm:text-sm text-slate-300 font-light">
+                ปรับปรุงศูนย์นันทนาการจตุจักร กรุงเทพมหานคร (สระว่ายน้ำ & กันซึม Polyurea)
+              </p>
+
+              <!-- Meta pills: Desktop Folder, Duration, Material -->
+              <div class="flex flex-wrap items-center gap-3 pt-1 text-xs text-slate-300">
+                <span class="flex items-center gap-1.5 bg-black/25 px-2.5 py-1 rounded-lg border border-white/10">
+                  <i class="fa-solid fa-folder-tree text-amber-400"></i>
+                  <span id="projFolderPath">C:\Users\nattc\OneDrive\Desktop\ศนท จตุจักร</span>
+                </span>
+                <span class="flex items-center gap-1.5 bg-black/25 px-2.5 py-1 rounded-lg border border-white/10">
+                  <i class="fa-regular fa-calendar-check text-sky-400"></i>
+                  <span id="projPeriod">18 พ.ค. 2569 – 15 ก.ย. 2569 (120 วัน)</span>
+                </span>
+                <span class="flex items-center gap-1.5 bg-black/25 px-2.5 py-1 rounded-lg border border-white/10">
+                  <i class="fa-solid fa-cubes text-emerald-400"></i>
+                  <span id="projMaterialSpec">Polyurea + ไวนิลไลเนอร์ 1.5mm</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Right Controls: Progress Dial + Action Buttons -->
+            <div class="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end gap-3">
+              <div class="flex items-center gap-4 bg-black/30 p-3.5 rounded-2xl border border-white/10">
+                <div class="text-right">
+                  <p class="text-[11px] text-slate-400">ความคืบหน้าโครงการ</p>
+                  <p id="projProgressPct" class="text-2xl font-bold font-kanit text-white">96.0%</p>
+                  <p id="projProgressDiff" class="text-[10px] text-emerald-400">ตามแผนงาน</p>
+                </div>
+                <div class="w-12 h-12 rounded-full border-4 border-sky-400/30 border-t-sky-400 flex items-center justify-center font-bold text-xs">
+                  <i class="fa-solid fa-chart-pie text-sky-400"></i>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button onclick="archiveCurrentProject()" class="px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition-all flex items-center gap-1.5" title="ย้ายโครงการเก่าเกิน 3 เดือนเข้าคลัง Archive">
+                  <i class="fa-solid fa-box-archive text-amber-400"></i>
+                  <span>Archive</span>
+                </button>
+                <button onclick="openAddTaskDefectModal()" class="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-900 text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 font-kanit">
+                  <i class="fa-solid fa-plus"></i>
+                  <span>เพิ่มงาน / Defect</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 5 Sub-Tabs Navigation Bar -->
+        <div class="bg-white rounded-2xl p-1.5 border border-slate-200 flex flex-wrap items-center gap-1 shadow-sm">
+          <button onclick="switchSubTab('wbs')" id="subtab-wbs" class="subtab-btn flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all bg-sky-50 text-sky-700 border border-sky-200 shadow-sm">
+            <i class="fa-solid fa-list-check"></i>
+            <span>1. แผนงาน WBS</span>
+          </button>
+          <button onclick="switchSubTab('actions')" id="subtab-actions" class="subtab-btn flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+            <i class="fa-solid fa-clipboard-check text-indigo-500"></i>
+            <span>2. งานพี่นัทสั่งใน LINE</span>
+            <span id="subtabActionCount" class="px-1.5 py-0.2 text-[10px] bg-rose-500 text-white rounded-full">2</span>
+          </button>
+          <button onclick="switchSubTab('defects')" id="subtab-defects" class="subtab-btn flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+            <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+            <span>3. Defect Kanban</span>
+            <span id="subtabDefectCount" class="px-1.5 py-0.2 text-[10px] bg-amber-500 text-white rounded-full">3</span>
+          </button>
+          <button onclick="switchSubTab('photos')" id="subtab-photos" class="subtab-btn flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+            <i class="fa-solid fa-camera text-emerald-500"></i>
+            <span>4. รูปหน้างาน & โฟร์แมน</span>
+          </button>
+          <button onclick="switchSubTab('dossier')" id="subtab-dossier" class="subtab-btn flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+            <i class="fa-solid fa-file-invoice-dollar text-sky-600"></i>
+            <span>5. ต้นทุน, BOQ & ผู้รับเหมา</span>
+          </button>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- SUB-TAB 1: WBS & GANTT PROGRESS                                     -->
+        <!-- =================================================================== -->
+        <div id="tabContent-wbs" class="subtab-content space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 card-elevation">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 class="text-base font-bold font-kanit text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-timeline text-sky-600"></i>
+                  โครงสร้างงานย่อย WBS & การปรับ % ผลงานจริง
+                </h3>
+                <p class="text-xs text-slate-600">อ้างอิงจากแผนงาน Action Plan ในโฟลเดอร์ของโครงการ ปรับเลื่อนแถบสไลเดอร์เพื่ออัปเดตผลงานทันที</p>
+              </div>
+              <div class="text-xs text-slate-600">
+                <span>บันทึกสถานะลง: </span>
+                <code class="px-2 py-0.5 bg-slate-100 rounded text-slate-800 text-[11px]" id="wbsAutoSyncTag">AI_สร้าง_ข้อมูลและรูปจาก_LINE\_Site_Progress_Auto.xlsx</code>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-600 uppercase font-semibold text-[11px] border-y border-slate-200">
+                  <tr>
+                    <th class="py-3 px-4 w-12 text-center">ลำดับ</th>
+                    <th class="py-3 px-4">รายการงาน (Action Plan Item)</th>
+                    <th class="py-3 px-3">หมวดงาน</th>
+                    <th class="py-3 px-3">ระยะเวลา</th>
+                    <th class="py-3 px-3 text-center">น้ำหนัก %</th>
+                    <th class="py-3 px-4 min-w-[200px]">ผลงานจริง (%)</th>
+                    <th class="py-3 px-3 text-center">สถานะ</th>
+                  </tr>
+                </thead>
+                <tbody id="wbsTableBody" class="divide-y divide-slate-100 text-slate-700">
+                  <!-- Dynamically Rendered -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- SUB-TAB 2: LINE ACTION ITEMS (ASSIGNED TO-DO)                      -->
+        <!-- =================================================================== -->
+        <div id="tabContent-actions" class="subtab-content hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 card-elevation">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 class="text-base font-bold font-kanit text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-bullhorn text-indigo-600"></i>
+                  รายการงานที่พี่นัทสั่งการในกลุ่ม LINE (Action Items)
+                </h3>
+                <p class="text-xs text-slate-600">บอทดักจับคำสั่งมอบหมายงานอัตโนมัติ โดยไม่ต้องพิมพ์ตอบรับรบกวนในกลุ่ม</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-600">กรองสถานะ:</span>
+                <select id="actionFilterStatus" onchange="renderActionItems()" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-sky-500">
+                  <option value="all">ทั้งหมด</option>
+                  <option value="pending">รอดำเนินการ</option>
+                  <option value="completed">เสร็จสิ้นแล้ว</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Action Items Grid -->
+            <div id="actionItemsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Dynamically Rendered -->
+            </div>
+          </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- SUB-TAB 3: DEFECT KANBAN BOARD                                      -->
+        <!-- =================================================================== -->
+        <div id="tabContent-defects" class="subtab-content hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 card-elevation">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 class="text-base font-bold font-kanit text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                  บอร์ดติดตาม Defect & จุดบกพร่องหน้างาน (Kanban)
+                </h3>
+                <p class="text-xs text-slate-600">บันทึกรูปและข้อความแจ้งปัญหาจากช่าง/โฟร์แมน กดเปลี่ยนสถานะการซ่อมได้ทันที</p>
+              </div>
+              <button onclick="openAddDefectOnlyModal()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200 transition-all flex items-center gap-1.5 font-kanit">
+                <i class="fa-solid fa-plus"></i>
+                <span>แจ้ง Defect ใหม่</span>
+              </button>
+            </div>
+
+            <!-- Kanban 3 Columns -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              
+              <!-- Col 1: Pending (รอการแก้ไข) -->
+              <div class="bg-rose-50/60 rounded-2xl p-4 border border-rose-100 kanban-col">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-rose-200/60">
+                  <span class="text-xs font-bold font-kanit text-rose-700 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                    รอการแก้ไข (Pending)
+                  </span>
+                  <span id="kanbanCountPending" class="px-2 py-0.5 text-[10px] bg-rose-200 text-rose-800 rounded-full font-bold">1</span>
+                </div>
+                <div id="kanbanColPending" class="space-y-3">
+                  <!-- Cards rendered by JS -->
+                </div>
+              </div>
+
+              <!-- Col 2: In Progress (กำลังดำเนินการซ่อม) -->
+              <div class="bg-amber-50/60 rounded-2xl p-4 border border-amber-100 kanban-col">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-amber-200/60">
+                  <span class="text-xs font-bold font-kanit text-amber-700 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    กำลังดำเนินการซ่อม (In Progress)
+                  </span>
+                  <span id="kanbanCountInProgress" class="px-2 py-0.5 text-[10px] bg-amber-200 text-amber-800 rounded-full font-bold">1</span>
+                </div>
+                <div id="kanbanColInProgress" class="space-y-3">
+                  <!-- Cards rendered by JS -->
+                </div>
+              </div>
+
+              <!-- Col 3: Resolved (แก้ไขเสร็จสิ้น) -->
+              <div class="bg-emerald-50/60 rounded-2xl p-4 border border-emerald-100 kanban-col">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-emerald-200/60">
+                  <span class="text-xs font-bold font-kanit text-emerald-700 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    แก้ไขเสร็จสิ้น (Resolved)
+                  </span>
+                  <span id="kanbanCountResolved" class="px-2 py-0.5 text-[10px] bg-emerald-200 text-emerald-800 rounded-full font-bold">1</span>
+                </div>
+                <div id="kanbanColResolved" class="space-y-3">
+                  <!-- Cards rendered by JS -->
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- SUB-TAB 4: DAILY PHOTO STREAM & FOREMAN LOGS                       -->
+        <!-- =================================================================== -->
+        <div id="tabContent-photos" class="subtab-content hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 card-elevation">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 class="text-base font-bold font-kanit text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-camera text-emerald-600"></i>
+                  แกลเลอรีรูปถ่ายหน้างาน & รายงานประจำวันโฟร์แมน (Daily Stream)
+                </h3>
+                <p class="text-xs text-slate-600">ดักจับรูปและข้อความรายงานความคืบหน้าจากกลุ่ม LINE โดยอัตโนมัติ</p>
+              </div>
+              <!-- Storage Badges -->
+              <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-[11px]">
+                <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-200 flex items-center gap-1.5 font-medium">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  <span id="photoSaveStorageBadge">💾 เซฟลง: &lt;โฟลเดอร์&gt;\AI_สร้าง_ข้อมูลและรูปจาก_LINE\รูปหน้างาน\</span>
+                </span>
+                <span class="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-lg border border-sky-200 flex items-center gap-1.5 font-medium">
+                  <i class="fa-solid fa-table"></i>
+                  <span>📊 อัปเดตลง _Site_Progress_Auto.xlsx</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Photo Stream Grid -->
+            <div id="photoStreamContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <!-- Dynamically Rendered -->
+            </div>
+          </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- SUB-TAB 5: MASTER DOSSIER (COST, BOQ, CONTRACTORS, FILES)          -->
+        <!-- =================================================================== -->
+        <div id="tabContent-dossier" class="subtab-content hidden space-y-6">
+          
+          <!-- 1. Cost & Financial Summary Card -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 card-elevation">
+            <h3 class="text-base font-bold font-kanit text-slate-800 flex items-center gap-2 mb-4">
+              <i class="fa-solid fa-coins text-amber-500"></i>
+              ข้อมูลการเงิน & ต้นทุนโครงการ (Financial Summary)
+            </h3>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+              <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <p class="text-xs text-slate-600">วงเงินสัญญา (รวม VAT)</p>
+                <p id="dossierContractBudget" class="text-xl font-bold font-kanit text-slate-900 mt-1">4,800,000</p>
+                <span class="text-[10px] text-slate-600">บาท</span>
+              </div>
+              <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <p class="text-xs text-slate-600">ต้นทุนเป้าหมาย (Cost Target)</p>
+                <p id="dossierTargetCost" class="text-xl font-bold font-kanit text-slate-800 mt-1">3,280,000</p>
+                <span class="text-[10px] text-slate-600">บาท</span>
+              </div>
+              <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <p class="text-xs text-slate-600">จ่ายจริงแล้ว (Actual Spent)</p>
+                <p id="dossierActualSpent" class="text-xl font-bold font-kanit text-sky-600 mt-1">2,840,000</p>
+                <span class="text-[10px] text-slate-600">บาท</span>
+              </div>
+              <div class="bg-emerald-50 p-3.5 rounded-xl border border-emerald-100">
+                <p class="text-xs text-emerald-800 font-semibold">กำไรคาดการณ์ (Margin)</p>
+                <p id="dossierExpectedProfit" class="text-xl font-bold font-kanit text-emerald-600 mt-1">1,520,000</p>
+                <span id="dossierMarginPct" class="text-[10px] text-emerald-700 font-bold">Margin 31.7%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Contractors & Labor Directory -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 card-elevation">
+            <h3 class="text-base font-bold font-kanit text-slate-800 flex items-center gap-2 mb-3">
+              <i class="fa-solid fa-users text-sky-600"></i>
+              ทำเนียบผู้รับเหมา & ช่างหลัก (Contractors & Subcontractors)
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-600 uppercase font-semibold text-[11px] border-y border-slate-200">
+                  <tr>
+                    <th class="py-2.5 px-4">ชื่อช่าง / บริษัท</th>
+                    <th class="py-2.5 px-3">ประเภทงาน</th>
+                    <th class="py-2.5 px-3">เบอร์โทร / ธนาคาร</th>
+                    <th class="py-2.5 px-3">งวดเงินที่เบิก</th>
+                    <th class="py-2.5 px-3 text-right">ยอดเงินรวม</th>
+                  </tr>
+                </thead>
+                <tbody id="dossierContractorBody" class="divide-y divide-slate-100 text-slate-700">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 3. Materials & Area Specification Table -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 card-elevation">
+            <h3 class="text-base font-bold font-kanit text-slate-800 flex items-center gap-2 mb-3">
+              <i class="fa-solid fa-boxes-stacked text-indigo-600"></i>
+              สเปกวัสดุและปริมาณงาน (BOQ Specs & Area Breakdown)
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-600 uppercase font-semibold text-[11px] border-y border-slate-200">
+                  <tr>
+                    <th class="py-2.5 px-4">รายการวัสดุ / ส่วนงาน</th>
+                    <th class="py-2.5 px-3">สเปก / มาตรฐาน</th>
+                    <th class="py-2.5 px-3 text-center">ปริมาณ</th>
+                    <th class="py-2.5 px-3 text-center">หน่วย</th>
+                    <th class="py-2.5 px-3 text-right">ราคาต่อหน่วย</th>
+                    <th class="py-2.5 px-4 text-right">รวมเงิน (บาท)</th>
+                  </tr>
+                </thead>
+                <tbody id="dossierMaterialBody" class="divide-y divide-slate-100 text-slate-700">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 4. Real Desktop Folder File Explorer -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 card-elevation">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold font-kanit text-slate-800 flex items-center gap-2">
+                <i class="fa-regular fa-folder-open text-amber-500"></i>
+                สารบัญไฟล์จริงในโฟลเดอร์โครงการ (Desktop Folder Explorer)
+              </h3>
+              <span class="text-xs text-slate-600 flex items-center gap-1">
+                <i class="fa-solid fa-lock text-slate-600"></i>
+                Read-Only Protection 100%
+              </span>
+            </div>
+            <div id="dossierFilesList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 3. FLOATING ACTION BUTTON (FAB) & UNIFIED LINE 7-GROUP INBOX DRAWER        -->
+  <!-- ========================================================================= -->
+  
+  <!-- Floating Button -->
+  <button id="floatingAssistantBtn" onclick="toggleAssistantDrawer()" class="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-[#0b192c] via-[#0284c7] to-[#06c755] hover:scale-105 active:scale-95 text-white p-3.5 sm:px-5 sm:py-3.5 rounded-full shadow-2xl flex items-center gap-2.5 transition-all group font-kanit ring-4 ring-emerald-400/20">
+    <div class="relative">
+      <i class="fa-brands fa-line text-2xl text-emerald-300"></i>
+      <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+    </div>
+    <span class="hidden sm:inline font-bold text-sm tracking-wide">รวมแชท 7 กลุ่ม LINE & อับดุล AI</span>
+  </button>
+
+  <!-- Slide-Over Assistant Drawer Backdrop -->
+  <div id="assistantDrawerBackdrop" onclick="closeAssistantDrawer()" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden transition-opacity"></div>
+  
+  <!-- Slide-Over Unified Inbox Drawer (Executive Width) -->
+  <div id="assistantDrawer" class="fixed top-0 right-0 bottom-0 w-full md:w-[780px] lg:w-[920px] bg-white z-50 shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-in-out border-l border-slate-200">
+    
+    <!-- Drawer Master Header -->
+    <div class="bg-[#0b192c] text-white p-4 flex items-center justify-between border-b border-slate-800 flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#06c755] to-emerald-400 flex items-center justify-center text-white shadow-md">
+          <i class="fa-brands fa-line text-xl"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold font-kanit text-white leading-tight flex items-center gap-2">
+            <span>Unified LINE 7-Group Inbox</span>
+            <span class="px-2 py-0.2 text-[10px] bg-emerald-500/20 text-emerald-300 rounded-full font-sans">Live Connected</span>
+          </h3>
+          <p class="text-[11px] text-slate-300 font-light">ศูนย์รวมข้อความแชท 7 โครงการ & AI ผู้ช่วยบริหารงาน "อับดุล"</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Switcher between Unified Inbox & Webhook Simulator -->
+        <div class="bg-[#15263f] p-1 rounded-xl flex items-center gap-1 border border-slate-700">
+          <button onclick="switchAssistantTab('inbox')" id="btnTabInbox" class="px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-600 text-white shadow-sm transition-all font-kanit flex items-center gap-1.5">
+            <i class="fa-solid fa-comments"></i>
+            <span>รวม 7 แชท</span>
+          </button>
+          <button onclick="switchAssistantTab('simulator')" id="btnTabSimulator" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all font-kanit flex items-center gap-1.5">
+            <i class="fa-solid fa-vial-virus text-amber-400"></i>
+            <span>จำลอง Webhook</span>
+          </button>
+        </div>
+
+        <button onclick="closeAssistantDrawer()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all ml-1">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- PANE 1: UNIFIED LINE 7-GROUP INBOX -->
+    <div id="assistPane-inbox" class="flex-1 flex overflow-hidden">
+      
+      <!-- Left Sidebar: 7 Project Rooms List (w-64 to w-72) -->
+      <aside class="w-64 sm:w-72 border-r border-slate-200 bg-slate-50 flex flex-col flex-shrink-0">
+        <!-- Room Filter/Search -->
+        <div class="p-3 border-b border-slate-200 bg-white">
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-xs"></i>
+            <input type="text" id="inboxRoomSearch" oninput="filterInboxRooms(this.value)" placeholder="ค้นหากลุ่ม LINE หรือไซต์..." class="w-full text-xs pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <!-- 7 LINE Group Rooms List -->
+        <div id="inboxRoomsList" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100">
+          <!-- Dynamically populated by app.js -->
+        </div>
+
+        <!-- Bot Status Footer inside Sidebar -->
+        <div class="p-3 bg-slate-100/80 border-t border-slate-200 text-[11px] text-slate-600 flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            7 กลุ่มผูก Webhook แล้ว
+          </span>
+          <span class="text-[10px] text-slate-600">อับดุล สแตนด์บาย</span>
+        </div>
+      </aside>
+
+      <!-- Right Main Chat Pane: Active Room -->
+      <div class="flex-1 flex flex-col bg-white overflow-hidden">
+        
+        <!-- Active Room Header & 2 Prominent Shortcut Buttons -->
+        <div class="p-3 sm:px-4 bg-white border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 flex-shrink-0">
+          <div class="flex items-center gap-2.5 overflow-hidden">
+            <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm flex-shrink-0">
+              <i class="fa-brands fa-line text-lg text-emerald-600"></i>
+            </div>
+            <div class="overflow-hidden">
+              <h4 id="inboxCurrentRoomTitle" class="font-bold font-kanit text-sm text-slate-900 truncate">
+                บลูเคอร์ - ศนท. จตุจักร
+              </h4>
+              <p id="inboxCurrentRoomMeta" class="text-[10px] text-slate-600 flex items-center gap-1.5 truncate">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>สมาชิก 8 คน · โฟลเดอร์: ศนท จตุจักร</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- 2 Prominent Header Shortcuts -->
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <!-- Shortcut 1: AI สรุปแชท & แจกงาน -->
+            <button onclick="triggerAiSummarizeAndDispatch()" class="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white rounded-xl text-xs font-semibold font-kanit shadow-sm transition-all flex items-center gap-1.5">
+              <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+              <span>AI สรุปแชท & แจกงาน</span>
+            </button>
+            
+            <!-- Shortcut 2: คลังรูป & ไฟล์ห้องนี้ (ไม่หมดอายุ) -->
+            <button onclick="openRoomMediaVault()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold font-kanit transition-all flex items-center gap-1.5">
+              <i class="fa-regular fa-images text-emerald-600"></i>
+              <span>คลังรูป & ไฟล์ห้องนี้</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat History Stream (Real LINE-Style Feed) -->
+        <div id="inboxMessagesStream" class="flex-1 p-4 overflow-y-auto space-y-3.5 custom-scrollbar bg-slate-50/50 text-xs">
+          <!-- Dynamically Rendered by app.js -->
+        </div>
+
+        <!-- 4 Quick Action Chips Bar (Above Input) -->
+        <div class="px-3 py-2 bg-white border-t border-slate-200 overflow-x-auto whitespace-nowrap flex items-center gap-2 custom-scrollbar flex-shrink-0 text-xs">
+          <span class="text-[11px] font-bold text-slate-600 flex items-center gap-1 flex-shrink-0 mr-1">
+            <i class="fa-solid fa-bolt text-amber-500"></i>
+            Quick Actions:
+          </span>
+          <button onclick="handleQuickChip('extract_tasks')" class="px-2.5 py-1 bg-slate-50 hover:bg-sky-50 hover:text-sky-700 hover:border-sky-300 border border-slate-200 rounded-lg text-slate-700 text-[11px] font-medium transition-all flex items-center gap-1 flex-shrink-0">
+            📌 ดึงคำสั่งงานจากแชทล่าสุด
+          </button>
+          <button onclick="handleQuickChip('summarize_today')" class="px-2.5 py-1 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200 rounded-lg text-slate-700 text-[11px] font-medium transition-all flex items-center gap-1 flex-shrink-0">
+            📊 สรุปงาน & Defect วันนี้
+          </button>
+          <button onclick="handleQuickChip('check_budget')" class="px-2.5 py-1 bg-slate-50 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 border border-slate-200 rounded-lg text-slate-700 text-[11px] font-medium transition-all flex items-center gap-1 flex-shrink-0">
+            💰 เช็คงบ & ต้นทุนโครงการนี้
+          </button>
+          <button onclick="handleQuickChip('check_delivery')" class="px-2.5 py-1 bg-slate-50 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300 border border-slate-200 rounded-lg text-slate-700 text-[11px] font-medium transition-all flex items-center gap-1 flex-shrink-0">
+            🧾 สรุปบิล/ใบส่งของหน้างาน
+          </button>
+        </div>
+
+        <!-- Chat Input Bar -->
+        <div class="p-3 bg-white border-t border-slate-200 flex-shrink-0">
+          <form id="inboxChatForm" onsubmit="onInboxSendMessage(event)" class="flex items-center gap-2">
+            <input type="text" id="inboxMessageInput" placeholder="พิมพ์ข้อความเข้ากลุ่ม LINE หรือสั่งอับดุล... (เช่น ช่างตี้ พรุ่งนี้เทสสระน้ำ)" class="flex-1 text-xs border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50">
+            <button type="submit" class="w-10 h-10 bg-[#06c755] hover:bg-emerald-600 text-white rounded-xl flex items-center justify-center shadow-sm transition-all flex-shrink-0">
+              <i class="fa-solid fa-paper-plane text-xs"></i>
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- PANE 2: LIVE LINE WEBHOOK SIMULATOR (Sub-tab) -->
+    <div id="assistPane-simulator" class="flex-1 flex flex-col overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50 hidden text-xs">
+      
+      <!-- Target LINE Group Selector -->
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+          <i class="fa-brands fa-line text-emerald-500 mr-1 text-sm"></i>
+          เลือกห้องแชทกลุ่ม LINE เป้าหมายสำหรับทดสอบ:
+        </label>
+        <select id="simTargetGroup" class="w-full text-xs font-kanit border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <option value="prj-chatuchak">บลูเคอร์ - ศนท. จตุจักร (สระว่ายน้ำ)</option>
+          <option value="prj-bangna">บลูเคอร์ - ศนท. บางนา (พื้นยาง EPDM)</option>
+          <option value="prj-bangkae">บลูเคอร์ - ศนท. บางแค (ระบบแอร์ HVAC)</option>
+          <option value="prj-saphansung">บลูเคอร์ - ศนท. สะพานสูง (ฝ้าเพดาน)</option>
+          <option value="prj-lumpini">บลูเคอร์ - ศนท. ลุมพินี (ซ่อมเพดาน Sika)</option>
+          <option value="prj-prachin">บลูเคอร์ - อบต. ปราจีน (สนามเด็กเล่น)</option>
+          <option value="prj-maehongson">บลูเคอร์ - แม่ฮ่องสอน พี่บอม (ลู่วิ่ง)</option>
+        </select>
+      </div>
+
+      <!-- 6 One-Click Test Scenario Buttons -->
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
+        <p class="font-bold font-kanit text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-bolt text-amber-500"></i>
+          กดจำลอง 6 เหตุการณ์จริงในคลิกเดียว:
+        </p>
+
+        <div class="space-y-2">
+          <!-- Scenario 1 -->
+          <button onclick="runSimulation(1)" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 transition-all flex items-start gap-2.5">
+            <span class="w-6 h-6 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center flex-shrink-0 text-xs font-bold font-kanit">1</span>
+            <div>
+              <p class="font-semibold text-slate-800">พี่นัทสั่งงานลูกน้องในกลุ่ม LINE</p>
+              <p class="text-[11px] text-slate-600">บอทเงียบ 100% แต่ดักจับโผล่ในแท็บ Action Items ทันที</p>
+            </div>
+          </button>
+
+          <!-- Scenario 2 -->
+          <button onclick="runSimulation(2)" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 transition-all flex items-start gap-2.5">
+            <span class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0 text-xs font-bold font-kanit">2</span>
+            <div>
+              <p class="font-semibold text-slate-800">โฟร์แมนส่งรูปหน้างาน + แจ้ง % งาน & กำลังพล</p>
+              <p class="text-[11px] text-slate-600">อัปเดตแกลเลอรีรูป + กราฟ + ซิงค์ _Site_Progress_Auto.xlsx</p>
+            </div>
+          </button>
+
+          <!-- Scenario 3 -->
+          <button onclick="runSimulation(3)" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-all flex items-start gap-2.5">
+            <span class="w-6 h-6 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0 text-xs font-bold font-kanit">3</span>
+            <div>
+              <p class="font-semibold text-slate-800">ช่างแจ้ง Defect พื้นยางบวม / ท่อประปารั่ว</p>
+              <p class="text-[11px] text-slate-600">บอทดักจับรูปและข้อความเข้าคอลัมน์ Defect Kanban ทันที</p>
+            </div>
+          </button>
+
+          <!-- Scenario 4 -->
+          <button onclick="runSimulation(4)" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-purple-50 border border-slate-200 hover:border-purple-200 transition-all flex items-start gap-2.5">
+            <span class="w-6 h-6 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0 text-xs font-bold font-kanit">4</span>
+            <div>
+              <p class="font-semibold text-slate-800">ส่งรูปอาหาร / สติกเกอร์สวัสดีวันจันทร์</p>
+              <p class="text-[11px] text-slate-600">Vision AI กรองทิ้งอัตโนมัติ ไม่เปลืองที่และไม่รกหน้าเว็บ</p>
+            </div>
+          </button>
+
+          <!-- Scenario 5 -->
+          <button onclick="runSimulation(5)" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 transition-all flex items-start gap-2.5">
+            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center flex-shrink-0 text-xs font-bold font-kanit">5</span>
+            <div>
+              <p class="font-semibold text-slate-800">เรียกถาม "อับดุล ..." ข้ามห้องแชท</p>
+              <p class="text-[11px] text-slate-600">บอทตอบข้อมูลพร้อมเตือนชัดเจนว่าถามข้ามไซต์</p>
+            </div>
+          </button>
+
+          <!-- Scenario 6 -->
+          <button onclick="runSimulation(6)" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-200 transition-all flex items-start gap-2.5">
+            <span class="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0 text-xs font-bold font-kanit">6</span>
+            <div>
+              <p class="font-semibold text-slate-800">พิมพ์ "อับดุล สรุป"</p>
+              <p class="text-[11px] text-slate-600">ส่งการ์ด Flex Message สรุปสถานะประจำวัน โควต้าฟรี 100%</p>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Custom Simulator Message Box -->
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
+        <p class="font-bold font-kanit text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-keyboard text-slate-600"></i>
+          พิมพ์ข้อความทดสอบด้วยตนเอง:
+        </p>
+        <div class="space-y-2">
+          <input type="text" id="simCustomSender" placeholder="ชื่อผู้ส่ง (เช่น พี่นัท, ช่างตี้, โฟร์แมนวัฒน์)" value="พี่นัท" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-1.5 bg-slate-50">
+          <textarea id="simCustomText" rows="2" placeholder="พิมพ์ข้อความที่ต้องการส่งเข้ากลุ่ม..." class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 bg-slate-50">ช่างตี้ พรุ่งนี้ 8 โมงเช้าตรวจระดับขอบสระว่ายน้ำให้เรียบร้อยนะ</textarea>
+          <button onclick="sendCustomSimulation()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold font-kanit text-xs transition-all shadow-sm flex items-center justify-center gap-1.5">
+            <i class="fa-brands fa-line text-sm"></i>
+            <span>ยิง Webhook จำลองเข้าสู่ระบบ</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Webhook Terminal / Log Output -->
+      <div class="bg-[#0b192c] text-slate-200 p-3.5 rounded-2xl border border-slate-800 shadow-inner font-mono-code text-[11px] space-y-1.5">
+        <div class="flex items-center justify-between text-slate-400 border-b border-slate-800 pb-1">
+          <span class="flex items-center gap-1.5">
+            <i class="fa-solid fa-terminal text-sky-400 text-xs"></i>
+            Live Webhook Events Log
+          </span>
+          <button onclick="clearSimLogs()" class="text-[10px] text-slate-400 hover:text-white">เคลียร์ Log</button>
+        </div>
+        <div id="simLogContainer" class="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pt-1 text-[10px] text-slate-300">
+          <p class="text-slate-600">[READY] LINE Webhook Gateway initialized · Ready for simulation events.</p>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 4. MODALS (ONBOARDING, ADD TASK/DEFECT, ROOM VAULT, LIGHTBOX)             -->
+  <!-- ========================================================================= -->
+
+  <!-- Modal 1: Zero-Code Onboarding Modal (เพิ่มโครงการ / ผูกกลุ่ม LINE) -->
+  <div id="onboardModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-scale-in">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+            <i class="fa-solid fa-folder-plus text-base"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold font-kanit text-slate-900">เพิ่มโครงการ / ผูกกลุ่ม LINE ใหม่</h3>
+            <p class="text-[11px] text-slate-600">Zero-Code Onboarding สแกนโฟลเดอร์บน Desktop หรือผูกรหัสกลุ่ม LINE</p>
+          </div>
+        </div>
+        <button onclick="closeOnboardModal()" class="w-8 h-8 rounded-lg text-slate-600 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Step 1: Scan Desktop Folders -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-bold text-slate-700">1. สแกนเลือกโฟลเดอร์โครงการบน Desktop</label>
+          <button onclick="scanDesktopFolders()" class="text-[11px] text-sky-600 hover:text-sky-700 font-semibold flex items-center gap-1">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            สแกน Desktop
+          </button>
+        </div>
+        <select id="onboardFolderSelect" onchange="onOnboardFolderChange(this.value)" class="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500">
+          <option value="">-- เลือกโฟลเดอร์จากที่สแกนพบบน Desktop --</option>
+          <option value="ศนท จตุจักร">ศนท จตุจักร (มีอยู่แล้ว)</option>
+          <option value="ศนท บางนา">ศนท บางนา (มีอยู่แล้ว)</option>
+          <option value="ศนท บางแค">ศนท บางแค (มีอยู่แล้ว)</option>
+          <option value="ศนท สะพานสูง">ศนท สะพานสูง (มีอยู่แล้ว)</option>
+          <option value="ศนท ลุมพินี">ศนท ลุมพินี (มีอยู่แล้ว)</option>
+          <option value="อบต ปราจีน">อบต ปราจีน (มีอยู่แล้ว)</option>
+          <option value="พี่บอม แม่ฮ่องสอน">พี่บอม แม่ฮ่องสอน (มีอยู่แล้ว)</option>
+          <option value="__custom__">➕ พิมพ์ระบุชื่อโฟลเดอร์ใหม่เอง...</option>
+        </select>
+        <input type="text" id="onboardCustomFolderName" placeholder="ระบุชื่อโฟลเดอร์ใหม่บน Desktop..." class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 hidden">
+      </div>
+
+      <!-- Step 2: LINE Group ID or Command -->
+      <div class="space-y-2">
+        <label class="text-xs font-bold text-slate-700">2. การผูกกลุ่ม LINE</label>
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 space-y-1">
+          <p class="font-semibold flex items-center gap-1.5">
+            <i class="fa-brands fa-line text-emerald-600 text-sm"></i>
+            วิธีผูกกลุ่มง่ายที่สุดผ่าน LINE โดยตรง:
+          </p>
+          <p class="text-[11px] text-emerald-700">ดึงบอทเข้ากลุ่ม แล้วพิมพ์คำสั่งในกลุ่มแชท:</p>
+          <div class="bg-white/80 p-1.5 rounded-lg border border-emerald-300 font-mono text-[11px] text-slate-800 select-all">
+            "อับดุล ผูกกลุ่มนี้กับ [ชื่อโครงการ]"
+          </div>
+        </div>
+        <div class="pt-1">
+          <span class="text-[11px] text-slate-600">หรือกรอก LINE Group ID ด้วยตนเอง (ถ้ามี):</span>
+          <input type="text" id="onboardGroupId" placeholder="เช่น c_project_line_grp_08" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 mt-1">
+        </div>
+      </div>
+
+      <!-- Step 3: Project Budget & Spec -->
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700">งบสัญญา (บาท):</label>
+          <input type="number" id="onboardBudget" placeholder="เช่น 3500000" class="w-full border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 mt-1">
+        </div>
+        <div>
+          <label class="font-bold text-slate-700">สเปกวัสดุหลัก:</label>
+          <input type="text" id="onboardSpecs" placeholder="เช่น EPDM 15mm" class="w-full border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 mt-1">
+        </div>
+      </div>
+
+      <!-- Submit & Close Buttons -->
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+        <button onclick="closeOnboardModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-xl">ยกเลิก</button>
+        <button onclick="submitOnboardProject()" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold font-kanit rounded-xl shadow-md transition-all flex items-center gap-1.5">
+          <i class="fa-solid fa-check"></i>
+          <span>บันทึกโครงการใหม่</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Add Task / Defect Modal -->
+  <div id="addTaskDefectModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-scale-in">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 id="addModalTitle" class="text-base font-bold font-kanit text-slate-900">เพิ่มรายการงาน / Defect ด้วยตนเอง</h3>
+        <button onclick="closeAddTaskDefectModal()" class="w-8 h-8 rounded-lg text-slate-600 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700">ประเภทรายการ:</label>
+          <select id="modalItemType" class="w-full border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 mt-1">
+            <option value="action">📌 งานสั่งการ (Action Item / To-Do)</option>
+            <option value="defect">⚠️ Defect จุดบกพร่องหน้างาน</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="font-bold text-slate-700">รายละเอียดงาน / ปัญหา:</label>
+          <textarea id="modalItemDesc" rows="3" placeholder="ระบุรายละเอียด..." class="w-full border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 mt-1"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700">ผู้รับผิดชอบ:</label>
+            <input type="text" id="modalItemAssignee" placeholder="เช่น ช่างตี้, โฟร์แมนวัฒน์" class="w-full border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 mt-1">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">ความเร่งด่วน:</label>
+            <select id="modalItemPriority" class="w-full border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 mt-1">
+              <option value="ปกติ">ปกติ</option>
+              <option value="ด่วน">ด่วน</option>
+              <option value="ด่วนมาก">ด่วนมาก</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+        <button onclick="closeAddTaskDefectModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-xl">ยกเลิก</button>
+        <button onclick="submitAddTaskDefect()" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold font-kanit rounded-xl shadow-md transition-all">
+          บันทึกข้อมูล
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Room Media & Files Vault (ไม่หมดอายุ) -->
+  <div id="roomMediaVaultModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <i class="fa-regular fa-images text-lg"></i>
+          </div>
+          <div>
+            <h3 id="vaultModalTitle" class="text-base font-bold font-kanit text-slate-900">คลังรูป & ไฟล์ (จัดเก็บบนคอมถาวร ไม่มีวันหมดอายุ)</h3>
+            <p id="vaultModalSubtitle" class="text-[11px] text-slate-600">รูปทุกรูปที่ส่งใน LINE ถูกแบ็กอัปเก็บลงในคอมพิวเตอร์ของพี่นัทโดยตรง</p>
+          </div>
+        </div>
+        <button onclick="closeRoomMediaVault()" class="w-8 h-8 rounded-lg text-slate-600 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto custom-scrollbar space-y-4">
+        <!-- Storage Path Box -->
+        <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs font-mono-code text-slate-700 flex items-center gap-2">
+          <i class="fa-solid fa-hard-drive text-amber-500"></i>
+          <span id="vaultModalPath">C:\Users\nattc\OneDrive\Desktop\...</span>
+        </div>
+
+        <!-- Photos Grid -->
+        <div>
+          <h4 class="text-xs font-bold font-kanit text-slate-800 mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-camera text-emerald-600"></i>
+            รูปถ่ายหน้างานทั้งหมดที่ดูดมาจากกลุ่มนี้:
+          </h4>
+          <div id="vaultPhotosGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Files List -->
+        <div>
+          <h4 class="text-xs font-bold font-kanit text-slate-800 mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-file-contract text-sky-600"></i>
+            ไฟล์ต้นฉบับ ปร.4 / BOQ / สัญญาในโฟลเดอร์นี้:
+          </h4>
+          <div id="vaultFilesList" class="space-y-1.5">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end pt-3 border-t border-slate-100 flex-shrink-0">
+        <button onclick="closeRoomMediaVault()" class="px-5 py-2 bg-slate-800 text-white text-xs font-semibold rounded-xl">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Lightbox Image Viewer -->
+  <div id="imageLightboxModal" onclick="closeLightbox()" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="relative max-w-3xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
+      <button onclick="closeLightbox()" class="absolute -top-10 right-0 text-white hover:text-slate-300 text-xl">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <img id="lightboxImg" src="" alt="Site Photo" class="max-w-full max-h-[80vh] rounded-2xl shadow-2xl object-contain border border-white/20">
+      <p id="lightboxCaption" class="text-white text-xs mt-3 text-center bg-black/60 px-4 py-2 rounded-xl"></p>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Application Logic JavaScript -->
+  <script src="app.js"></script>
+</body>
+</html>

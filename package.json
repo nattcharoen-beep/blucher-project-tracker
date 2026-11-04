@@ -1,0 +1,32 @@
+{
+  "name": "blucher-project-tracker",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server_local.js",
+  "scripts": {
+    "start": "node server_local.js",
+    "dev": "node server_local.js",
+    "worker": "npx wrangler dev worker/src/index.js",
+    "worker:deploy": "npx wrangler deploy worker/src/index.js",
+    "index": "node local-sync/indexer.js",
+    "report": "node local-sync/excel_reporter.js",
+    "sync": "node local-sync/sync_daemon.js",
+    "start:daemon": "node local-sync/sync_daemon.js",
+    "test": "node tests/verify_all.js",
+    "test:sync": "node local-sync/sync_daemon.js --once"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "dotenv": "^16.4.5",
+    "xlsx": "^0.18.5"
+  },
+  "keywords": [
+    "blucher",
+    "project-tracker",
+    "cloudflare-worker",
+    "line-bot",
+    "d1-sqlite"
+  ],
+  "author": "Blucher Engineering",
+  "license": "ISC"
+}

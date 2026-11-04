@@ -1,0 +1,605 @@
+// ======================================================================
+// Blucher Project Tracker - LINE Webhook & 2-Way Bot Handler
+// Integrated with W-3 AI Engine (Zero-Spam & Intelligent Site Extraction)
+// ======================================================================
+
+import {
+  getProjectByLineGroupId,
+  getProjectById,
+  getAllProjects,
+  bindProjectLineGroup,
+  addUnassignedGroup,
+  getSetting,
+  createDailyLog,
+  createDefect,
+  createActionItem,
+  savePhotoBuffer,
+  getWbsTasks,
+  getActionItems,
+  getDefects,
+  getDailyLogs
+} from './db.js';
+
+// Safe dynamic loader for W-3 AI engine
+let cachedAiEngine = null;
+async function getAiEngine() {
+  if (cachedAiEngine) return cachedAiEngine;
+  try {
+    const mod = await import('./ai_engine.js');
+    cachedAiEngine = mod.default || mod;
+    return cachedAiEngine;
+  } catch (e) {
+    try {
+      const mod = await import('../../ai_engine.js');
+      cachedAiEngine = mod.default || mod;
+      return cachedAiEngine;
+    } catch (e2) {
+      return null;
+    }
+  }
+}
+
+// ----------------------------------------------------------------------
+// 1. Signature Verification (Web Crypto / Node Crypto)
+// ----------------------------------------------------------------------
+export async function verifyLineSignature(body, signature, channelSecret) {
+  if (!signature || !channelSecret) return false;
+
+  try {
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(channelSecret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+      const signatureBuffer = await crypto.subtle.sign(
+        'HMAC',
+        key,
+        encoder.encode(body)
+      );
+      const hashArray = Array.from(new Uint8Array(signatureBuffer));
+      const base64 = btoa(String.fromCharCode.apply(null, hashArray));
+      return base64 === signature;
+    }
+
+    // Node.js fallback
+    const nodeCrypto = await import('node:crypto');
+    const hmac = nodeCrypto.createHmac('sha256', channelSecret);
+    hmac.update(body);
+    return hmac.digest('base64') === signature;
+  } catch (err) {
+    console.error('Signature verification error:', err);
+    return false;
+  }
+}
+
+// ----------------------------------------------------------------------
+// 2. LINE Messaging API Reply Helper (Zero Push Quota Consumption)
+// ----------------------------------------------------------------------
+export async function replyLineMessage(replyToken, messages, channelAccessToken) {
+  if (!replyToken || !channelAccessToken || replyToken.startsWith('mock_')) {
+    return { ok: true, mocked: true, messages };
+  }
+
+  const formatted = Array.isArray(messages)
+    ? messages.map(m => typeof m === 'string' ? { type: 'text', text: m } : m)
+    : [typeof messages === 'string' ? { type: 'text', text: messages } : messages];
+
+  try {
+    const res = await fetch('https://api.line.me/v2/bot/message/reply', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${channelAccessToken}`
+      },
+      body: JSON.stringify({
+        replyToken,
+        messages: formatted
+      })
+    });
+    return await res.json();
+  } catch (e) {
+    console.error('Error sending LINE reply:', e);
+    return { error: e.message };
+  }
+}
+
+// ----------------------------------------------------------------------
+// 3. Helper to fetch image binary from LINE Content API
+// ----------------------------------------------------------------------
+async function fetchLineImageBase64(messageId, channelAccessToken) {
+  if (!messageId || !channelAccessToken || messageId.startsWith('mock_') || messageId.startsWith('IMG_SIM_')) {
+    return null;
+  }
+  try {
+    const res = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+      headers: { Authorization: `Bearer ${channelAccessToken}` }
+    });
+    if (!res.ok) return null;
+    const arrayBuffer = await res.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  } catch (e) {
+    console.warn('Failed to fetch image binary from LINE:', e.message);
+    return null;
+  }
+}
+
+// ----------------------------------------------------------------------
+// 4. Main LINE Webhook Handler
+// ----------------------------------------------------------------------
+export async function handleLineWebhook(request, env) {
+  const isMockTest = request.headers.get('x-mock-test') === 'true';
+  const signature = request.headers.get('x-line-signature');
+  const channelSecret = env.LINE_CHANNEL_SECRET;
+
+  let rawBody = '';
+  try {
+    rawBody = await request.text();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Failed to read request body' }), { status: 400 });
+  }
+
+  if (!isMockTest) {
+    const isValid = await verifyLineSignature(rawBody, signature, channelSecret);
+    if (!isValid) {
+      return new Response(JSON.stringify({ error: 'Invalid LINE signature' }), { status: 401 });
+    }
+  }
+
+  let body = {};
+  try {
+    body = JSON.parse(rawBody);
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+  }
+
+  const events = body.events || [];
+  const results = [];
+
+  for (const event of events) {
+    try {
+      const result = await processSingleLineEvent(event, env);
+      results.push(result);
+    } catch (err) {
+      console.error('Error processing LINE event:', err);
+      results.push({ error: err.message });
+    }
+  }
+
+  return new Response(JSON.stringify({ success: true, processed: results.length, results }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+// ----------------------------------------------------------------------
+// 5. Single Event Processing Logic
+// ----------------------------------------------------------------------
+export async function processSingleLineEvent(event, env) {
+  const d1 = env.DB;
+  const channelAccessToken = env.LINE_CHANNEL_ACCESS_TOKEN;
+  const eventType = event.type;
+  const source = event.source || {};
+  const isGroup = source.type === 'group';
+  const groupId = source.groupId || null;
+  const userId = source.userId || null;
+  const replyToken = event.replyToken || null;
+
+  // --- EVENT: JOIN (Bot invited to a group) ---
+  if (eventType === 'join') {
+    if (groupId) {
+      await addUnassignedGroup(d1, groupId, 'กลุ่มไลน์ใหม่ที่เพิ่งเชิญบอท');
+      if (replyToken) {
+        const welcomeText =
+          `🤖 สวัสดีครับ! ผมคือ "อับดุล" AI ผู้ช่วยติดตามโครงการบลูเคอร์\n\n` +
+          `📌 พร้อมบันทึกความคืบหน้า รายงานช่าง ตรวจจับ Defect และสรุปงานให้พี่นัทและทีมงานแล้วครับ\n\n` +
+          `👉 วิธีผูกกลุ่มนี้กับโครงการ:\n` +
+          `พิมพ์: "อับดุล ผูกกลุ่มนี้กับ [ชื่อหรือรหัสโครงการ]"\n` +
+          `หรือเลือกผูกจากหน้าเว็บ Dashboard BuildTrack ครับ`;
+        await replyLineMessage(replyToken, welcomeText, channelAccessToken);
+      }
+    }
+    return { eventType: 'join', groupId, handled: true };
+  }
+
+  // --- EVENT: LEAVE ---
+  if (eventType === 'leave') {
+    return { eventType: 'leave', groupId, handled: true };
+  }
+
+  // --- EVENT: MESSAGE ---
+  if (eventType === 'message') {
+    const message = event.message || {};
+    const msgType = message.type;
+    const ai = await getAiEngine();
+
+    // Check project mapping for this group
+    let project = null;
+    if (groupId) {
+      project = await getProjectByLineGroupId(d1, groupId);
+    }
+
+    // 1-on-1 Chat Access Control
+    if (!isGroup) {
+      const allowedUsers = (env.ALLOWED_LINE_USERS || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (allowedUsers.length > 0 && userId && !allowedUsers.includes(userId)) {
+        if (replyToken) {
+          await replyLineMessage(replyToken, 'ขออภัยครับ บัญชีนี้เปิดให้เฉพาะผู้ดูแลระบบโครงการบลูเคอร์เท่านั้น', channelAccessToken);
+        }
+        return { eventType: 'message', status: 'UNAUTHORIZED' };
+      }
+    }
+
+    // Group Reply Confirm Toggle (Default: false = completely silent!)
+    const groupReplyToggle = (await getSetting(d1, 'group_reply_confirm_toggle', 'false')) === 'true';
+
+    // -------------------------------------------------------------
+    // TEXT MESSAGE HANDLING
+    // -------------------------------------------------------------
+    if (msgType === 'text') {
+      const text = (message.text || '').trim();
+
+      // Step 1: Use W-3 AI engine command parsing if available
+      let parsedCmd = null;
+      if (ai && typeof ai.parseWakeWordAndCommand === 'function') {
+        parsedCmd = ai.parseWakeWordAndCommand(text);
+      } else {
+        // Fallback command parser
+        const isWakeWord = /^(?:@?อับดุล|@?บอท)/i.test(text) || text.includes('อับดุล');
+        if (text.match(/ผูก(?:กลุ่มนี้กับ|กลุ่มกับ|โครงการ)?\s*(.+)/i)) {
+          const m = text.match(/ผูก(?:กลุ่มนี้กับ|กลุ่มกับ|โครงการ)?\s*(.+)/i);
+          parsedCmd = { type: 'BIND_GROUP', targetProjectName: m[1].trim() };
+        } else if (isWakeWord && /(สรุป|รายงาน)/i.test(text)) {
+          parsedCmd = { type: 'DAILY_SUMMARY' };
+        } else if (isWakeWord || !isGroup) {
+          parsedCmd = { type: 'QUESTION', cleanQuestion: text };
+        } else {
+          parsedCmd = { type: 'BACKGROUND_ANALYZE' };
+        }
+      }
+
+      // If in 1-on-1 chat, treat as direct question unless explicitly binding
+      if (!isGroup && parsedCmd.type === 'BACKGROUND_ANALYZE') {
+        parsedCmd = { type: 'QUESTION', cleanQuestion: text };
+      }
+
+      // CASE A: BIND GROUP COMMAND ("อับดุล ผูกกลุ่มนี้กับ ...")
+      if (parsedCmd.type === 'BIND_GROUP') {
+        const targetQuery = (parsedCmd.targetProjectName || '').trim();
+        const allProjects = await getAllProjects(d1, true);
+
+        const found = allProjects.find(p =>
+          p.id.toLowerCase() === targetQuery.toLowerCase() ||
+          p.name.toLowerCase().includes(targetQuery.toLowerCase()) ||
+          (p.short_name && p.short_name.toLowerCase().includes(targetQuery.toLowerCase())) ||
+          (targetQuery.toLowerCase().includes('ปราจีน') && (p.id.includes('PRACHIN') || p.name.includes('ปราจีน'))) ||
+          (targetQuery.toLowerCase().includes('ลุมพินี') && (p.id.includes('LUMPINI') || p.name.includes('ลุมพินี'))) ||
+          (targetQuery.toLowerCase().includes('บางนา') && (p.id.includes('BANGNA') || p.name.includes('บางนา'))) ||
+          (targetQuery.toLowerCase().includes('จตุจักร') && (p.id.includes('JATUJAK') || p.id.includes('CHATUCHAK') || p.name.includes('จตุจักร'))) ||
+          (targetQuery.toLowerCase().includes('บางแค') && (p.id.includes('BANGKAE') || p.name.includes('บางแค'))) ||
+          (targetQuery.toLowerCase().includes('สะพานสูง') && (p.id.includes('SAPHAN') || p.name.includes('สะพานสูง'))) ||
+          (targetQuery.toLowerCase().includes('แม่ฮ่องสอน') && (p.id.includes('MAEHONGSON') || p.name.includes('แม่ฮ่องสอน')))
+        );
+
+        if (found) {
+          await bindProjectLineGroup(d1, found.id, groupId);
+          const reply = `✅ ผูกกลุ่มนี้เข้ากับโครงการ "${found.name}" (รหัส: ${found.id}) เรียบร้อยแล้วครับ!\nนับจากนี้ทุกรายงานและรูปภาพจะถูกจัดเก็บเข้าโครงการนี้โดยอัตโนมัติ`;
+          if (replyToken) await replyLineMessage(replyToken, reply, channelAccessToken);
+          return { handled: true, action: 'BIND_PROJECT', projectId: found.id, replied: true };
+        } else {
+          const list = allProjects.map(p => `• ${p.short_name || p.name} (${p.id})`).join('\n');
+          const reply = `❌ ไม่พบโครงการ "${targetQuery}" ครับ\n\nโครงการที่มีอยู่ในระบบ:\n${list}\n\nกรุณาลองพิมพ์ใหม่อีกครั้ง เช่น "อับดุล ผูกกลุ่มนี้กับ สวนลุมพินี"`;
+          if (replyToken) await replyLineMessage(replyToken, reply, channelAccessToken);
+          return { handled: false, action: 'BIND_PROJECT_NOT_FOUND', replied: true };
+        }
+      }
+
+      // CASE B: DAILY SUMMARY COMMAND ("อับดุล สรุป")
+      if (parsedCmd.type === 'DAILY_SUMMARY') {
+        if (!project) {
+          const reply = `กลุ่มนี้ยังไม่ได้ผูกกับโครงการใดครับ พิมพ์ "อับดุล ผูกกลุ่มนี้กับ [ชื่อโครงการ]" หรือเลือกผูกจาก Dashboard ได้เลยครับ`;
+          if (replyToken) await replyLineMessage(replyToken, reply, channelAccessToken);
+          return { handled: true, action: 'SUMMARY_UNBOUND', replied: true };
+        }
+
+        const [tasks, actionItems, defects, logs] = await Promise.all([
+          getWbsTasks(d1, project.id),
+          getActionItems(d1, project.id),
+          getDefects(d1, project.id),
+          getDailyLogs(d1, project.id)
+        ]);
+
+        let summaryText = '';
+        if (ai && typeof ai.generateDailySummaryCard === 'function') {
+          summaryText = ai.generateDailySummaryCard(project, tasks, actionItems, defects, logs);
+        } else {
+          summaryText =
+            `📊 สรุปความคืบหน้าโครงการ: ${project.name}\n` +
+            `• ความคืบหน้าจริง: ${project.actual_progress}%\n` +
+            `• คนงานวันนี้: ${project.daily_workers || 0} คน\n` +
+            `• Defect คงค้าง: ${defects.filter(d => d.status !== 'RESOLVED').length} รายการ\n` +
+            `• โฟลเดอร์: ${project.folder_path || '-'}\n` +
+            `จัดเก็บข้อมูลอัตโนมัติลงในโฟลเดอร์ AI_สร้าง_ข้อมูลและรูปจาก_LINE เรียบร้อยครับ`;
+        }
+
+        if (replyToken) await replyLineMessage(replyToken, summaryText, channelAccessToken);
+        return { handled: true, action: 'REPLY_SUMMARY', summary: summaryText, replied: true };
+      }
+
+      // CASE C: DIRECT QUESTION TO ABDUL ("อับดุล ...")
+      if (parsedCmd.type === 'QUESTION') {
+        const questionText = parsedCmd.cleanQuestion || text;
+        const allProjects = await getAllProjects(d1, false);
+        let answerText = '';
+
+        if (ai && typeof ai.answerProjectQuestion === 'function') {
+          answerText = await ai.answerProjectQuestion({
+            question: questionText,
+            currentGroupProjectId: project?.id || null,
+            allProjects,
+            env
+          });
+        } else {
+          // Fallback question answering
+          if (/กี่คน|คนงาน/i.test(questionText) && project) {
+            answerText = `👷 โครงการ ${project.name} มีคนงานหน้างานวันนี้ ${project.daily_workers || 0} คนครับ`;
+          } else if (/กี่เปอร์เซ็นต์|คืบหน้า/i.test(questionText) && project) {
+            answerText = `📈 โครงการ ${project.name} คืบหน้าจริง ${project.actual_progress}% (แผนงาน ${project.planned_progress}%) ครับ`;
+          } else {
+            answerText = `🤖 สวัสดีครับพี่นัทและทีมงาน ผมอับดุลพร้อมให้ข้อมูลโครงการบลูเคอร์ครับ ถามเรื่องความคืบหน้า คนงาน หรือ Defect ได้เลยครับ`;
+          }
+        }
+
+        if (replyToken) await replyLineMessage(replyToken, answerText, channelAccessToken);
+        return { handled: true, action: 'REPLY_QUESTION', answer: answerText, replied: true };
+      }
+
+      // CASE D: BACKGROUND ANALYZE (SILENT INTELLIGENCE EXTRACTION IN GROUPS)
+      if (parsedCmd.type === 'BACKGROUND_ANALYZE') {
+        // Zero-Quota Pre-filter: Check if chitchat / noise (e.g. "ครับ", "555", "ok")
+        if (ai && typeof ai.isChitchatOrNoise === 'function' && ai.isChitchatOrNoise(text)) {
+          return { handled: true, ignoredNoise: true, replied: false };
+        }
+
+        const projectId = project ? project.id : 'PRJ-UNASSIGNED';
+        let extractedSomething = false;
+
+        // Try W-3 Silent Site Extractor if available
+        if (ai && typeof ai.extractSilentSiteUpdate === 'function') {
+          try {
+            const extraction = await ai.extractSilentSiteUpdate({
+              text,
+              project,
+              senderName: 'ช่างหน้างาน',
+              env
+            });
+
+            if (extraction && extraction.hasSiteUpdate) {
+              extractedSomething = true;
+
+              // Save Daily Log
+              await createDailyLog(d1, {
+                project_id: projectId,
+                summary: extraction.summary || text,
+                area_sqm_done: extraction.areaSqm || 0,
+                worker_count: extraction.workerCount || 0,
+                sender_name: 'ช่างหน้างาน (LINE)',
+                category: extraction.category || 'WORK_REPORT'
+              });
+
+              // Save Defects if detected
+              if (Array.isArray(extraction.defects)) {
+                for (const d of extraction.defects) {
+                  await createDefect(d1, {
+                    project_id: projectId,
+                    title: d.title || 'พบข้อบกพร่องหน้างาน',
+                    description: d.description || text,
+                    zone: d.zone || '',
+                    severity: d.severity || 'HIGH',
+                    status: 'OPEN',
+                    assignee: d.assignee || 'ทีมช่างหน้างาน'
+                  });
+                }
+              }
+
+              // Save Action Items if detected
+              if (Array.isArray(extraction.actionItems)) {
+                for (const a of extraction.actionItems) {
+                  await createActionItem(d1, {
+                    project_id: projectId,
+                    title: a.title,
+                    assignee: a.assignee || '',
+                    due_date: a.dueDate || '',
+                    status: 'OPEN',
+                    assigned_by: 'พี่นัท',
+                    raw_message: text
+                  });
+                }
+              }
+
+              // Update project worker count and progress if detected
+              if (extraction.workerCount && Number(extraction.workerCount) > 0) {
+                await d1.prepare('UPDATE projects SET daily_workers = ?, updated_at = ? WHERE id = ?')
+                  .bind(parseInt(extraction.workerCount, 10), new Date().toISOString(), projectId)
+                  .run();
+              }
+              if (extraction.progressDelta) {
+                const num = parseFloat(String(extraction.progressDelta).replace('%', ''));
+                if (!isNaN(num)) {
+                  await d1.prepare('UPDATE projects SET actual_progress = ?, updated_at = ? WHERE id = ?')
+                    .bind(num, new Date().toISOString(), projectId)
+                    .run();
+                }
+              }
+
+              // If toggle on, reply short confirmation
+              if (groupReplyToggle && replyToken) {
+                await replyLineMessage(replyToken, `📝 บันทึกข้อมูลเข้าโครงการ "${project?.name || projectId}" เรียบร้อยครับ`, channelAccessToken);
+              }
+
+              return {
+                handled: true,
+                silent: !groupReplyToggle,
+                replied: !!(groupReplyToggle && replyToken),
+                extracted: true,
+                extraction
+              };
+            }
+          } catch (e) {
+            console.warn('AI extraction warning:', e.message);
+          }
+        }
+
+        // Regex Fallback Extractor
+        const workerMatch = text.match(/คนงาน\s*(\d+)\s*คน/);
+        const workerCount = workerMatch ? parseInt(workerMatch[1], 10) : 0;
+        if (workerCount > 0) extractedSomething = true;
+
+        const sqmMatch = text.match(/(?:ปู|เท|รีด|เสร็จ|ทำไป)?\s*(\d+(?:\.\d+)?)\s*(?:ตร\.ม\.|ตารางเมตร)/);
+        const areaSqm = sqmMatch ? parseFloat(sqmMatch[1]) : 0;
+        if (areaSqm > 0) extractedSomething = true;
+
+        let isActionItem = false;
+        if (/(defect|ดีเฟก|ตำหนิ|ฟองอากาศ|รอยนูน|รอยแตก|ขูดซ่อม|แก้|สลับขั้ว|แต้ม)/i.test(text)) {
+          await createDefect(d1, {
+            project_id: projectId,
+            title: text.slice(0, 80),
+            description: text,
+            severity: 'HIGH',
+            status: 'OPEN',
+            assignee: 'ทีมช่างหน้างาน'
+          });
+          extractedSomething = true;
+        }
+
+        if (/(อย่าลืม|ช่วยตรวจ|สั่ง|ให้ส่ง|ด่วน|ก่อนลง|ประสานงาน|นำส่ง)/i.test(text)) {
+          await createActionItem(d1, {
+            project_id: projectId,
+            title: text.slice(0, 80),
+            raw_message: text,
+            status: 'OPEN',
+            assigned_by: 'พี่นัท'
+          });
+          extractedSomething = true;
+          isActionItem = true;
+        }
+
+        if (workerCount > 0 || areaSqm > 0 || extractedSomething || text.length > 20) {
+          await createDailyLog(d1, {
+            project_id: projectId,
+            summary: text,
+            worker_count: workerCount,
+            area_sqm_done: areaSqm,
+            sender_name: 'ช่างหน้างาน (LINE)',
+            category: 'WORK_REPORT'
+          });
+        }
+
+        // Update project table for worker count and progress
+        if (workerCount > 0) {
+          await d1.prepare('UPDATE projects SET daily_workers = ?, updated_at = ? WHERE id = ?')
+            .bind(workerCount, new Date().toISOString(), projectId)
+            .run();
+        }
+        const pctMatch = text.match(/(?:คืบหน้า|ได้|แล้วเสร็จ)\s*(\d+(?:\.\d+)?)\s*%/);
+        if (pctMatch) {
+          await d1.prepare('UPDATE projects SET actual_progress = ?, updated_at = ? WHERE id = ?')
+            .bind(parseFloat(pctMatch[1]), new Date().toISOString(), projectId)
+            .run();
+        }
+
+        if (groupReplyToggle && extractedSomething && replyToken) {
+          await replyLineMessage(replyToken, `📝 บันทึกข้อมูลเข้าโครงการเรียบร้อยครับ`, channelAccessToken);
+        }
+
+        return {
+          handled: true,
+          silent: !groupReplyToggle,
+          replied: !!(groupReplyToggle && replyToken),
+          extracted: extractedSomething,
+          action: isActionItem ? 'ACTION_ITEM_CREATED' : (workerCount > 0 || areaSqm > 0 ? 'DAILY_LOG_UPDATED' : 'LOGGED')
+        };
+      }
+    }
+
+    // -------------------------------------------------------------
+    // IMAGE MESSAGE HANDLING
+    // -------------------------------------------------------------
+    if (msgType === 'image') {
+      const projectId = project ? project.id : 'PRJ-UNASSIGNED';
+      const messageId = message.id || 'IMG-' + Date.now();
+
+      await savePhotoBuffer(d1, {
+        group_id: groupId,
+        project_id: projectId,
+        message_id: messageId,
+        photo_data: message.contentProvider?.originalContentUrl || '',
+        sender_name: 'ช่างหน้างาน (LINE)'
+      });
+
+      await createDailyLog(d1, {
+        project_id: projectId,
+        summary: '📷 ได้รับรูปภาพหน้างานจากกลุ่ม LINE',
+        worker_count: 0,
+        area_sqm_done: 0,
+        sender_name: 'ช่างหน้างาน (LINE)',
+        photo_url: message.contentProvider?.originalContentUrl || `https://api-data.line.me/v2/bot/message/${messageId}/content`,
+        category: 'SITE_PHOTO'
+      });
+
+      // Try AI Vision classification
+      if (ai && typeof ai.classifyAndExtractPhoto === 'function') {
+        try {
+          const imgBase64 = await fetchLineImageBase64(messageId, channelAccessToken);
+          if (imgBase64) {
+            const visionResult = await ai.classifyAndExtractPhoto({
+              imageBase64: imgBase64,
+              mimeType: 'image/jpeg',
+              captionText: '',
+              project,
+              env
+            });
+
+            if (visionResult && visionResult.detectedDefects?.length > 0) {
+              for (const d of visionResult.detectedDefects) {
+                await createDefect(d1, {
+                  project_id: projectId,
+                  title: d.title || 'ข้อบกพร่องตรวจจับจากรูปภาพ AI',
+                  description: d.description || visionResult.analysisSummary,
+                  zone: d.zone || 'หน้างาน',
+                  severity: d.severity || 'HIGH',
+                  status: 'OPEN',
+                  assignee: 'ทีมช่างหน้างาน'
+                });
+              }
+            }
+
+            if (groupReplyToggle && replyToken && visionResult.replyText) {
+              await replyLineMessage(replyToken, visionResult.replyText, channelAccessToken);
+            }
+
+            return { handled: true, imageAnalyzed: true, visionResult };
+          }
+        } catch (e) {
+          console.warn('Vision extraction error:', e.message);
+        }
+      }
+
+      if (groupReplyToggle && replyToken) {
+        await replyLineMessage(replyToken, '📷 บันทึกรูปภาพหน้างานเรียบร้อยครับ', channelAccessToken);
+      }
+
+      return { handled: true, action: 'IMAGE_BUFFERED', messageId };
+    }
+  }
+
+  return { handled: false, eventType };
+}
