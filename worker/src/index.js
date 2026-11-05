@@ -32,6 +32,7 @@ import {
   handleLineWebhook,
   processSingleLineEvent
 } from './line_handler.js';
+import { EMBEDDED_IMAGES } from './embedded_images.js';
 
 // Safe dynamic loader for AI engine
 let cachedAiEngine = null;
@@ -101,6 +102,86 @@ export default {
           return await handleLineWebhook(request, env);
         }
       }
+      // ------------------------------------------------------------------
+      // LINE Image Proxy & Pre-cached Asset Server: /api/line-image/:messageId
+      // ------------------------------------------------------------------
+      const imageMatch = pathname.match(/^\/api\/line-image\/([^/]+)$/);
+      if (imageMatch && method === 'GET') {
+        const rawMessageId = decodeURIComponent(imageMatch[1]);
+        const messageId = rawMessageId.replace(/^.*[\\/]/, '');
+
+        const serveBase64 = (b64) => {
+          let cleanB64 = b64.includes(',') ? b64.split(',')[1] : b64;
+          const binary = atob(cleanB64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          return new Response(bytes.buffer, {
+            status: 200,
+            headers: {
+              ...CORS_HEADERS,
+              'Content-Type': 'image/jpeg',
+              'Cache-Control': 'public, max-age=86400, s-maxage=86400'
+            }
+          });
+        };
+
+        // 1. Check embedded pre-cached genuine assets (Instant memory fast-path)
+        if (EMBEDDED_IMAGES[messageId] || EMBEDDED_IMAGES[rawMessageId]) {
+          return serveBase64(EMBEDDED_IMAGES[messageId] || EMBEDDED_IMAGES[rawMessageId]);
+        }
+
+        // 2. Check photo_buffer in D1
+        if (env.DB) {
+          try {
+            const row = await env.DB.prepare(
+              'SELECT photo_data FROM photo_buffer WHERE message_id = ? OR id = ? LIMIT 1'
+            ).bind(messageId, messageId).first();
+
+            if (row && row.photo_data) {
+              const data = row.photo_data;
+              if (EMBEDDED_IMAGES[data]) {
+                return serveBase64(EMBEDDED_IMAGES[data]);
+              }
+              if (data.startsWith('http')) {
+                return Response.redirect(data, 302);
+              }
+              if (data.length > 50) {
+                return serveBase64(data);
+              }
+            }
+          } catch (e) {
+            console.warn('Error querying photo_buffer:', e);
+          }
+        }
+
+        // 3. Proxy directly from LINE Messaging Content API
+        if (env.LINE_CHANNEL_ACCESS_TOKEN && !messageId.startsWith('mock_') && !messageId.startsWith('IMG_SIM_')) {
+          try {
+            const lineRes = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+              headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}` }
+            });
+            if (lineRes.ok) {
+              const contentType = lineRes.headers.get('content-type') || 'image/jpeg';
+              const imgBuffer = await lineRes.arrayBuffer();
+              return new Response(imgBuffer, {
+                status: 200,
+                headers: {
+                  ...CORS_HEADERS,
+                  'Content-Type': contentType,
+                  'Cache-Control': 'public, max-age=86400, s-maxage=86400'
+                }
+              });
+            }
+          } catch (e) {
+            console.warn('LINE content proxy error:', e);
+          }
+        }
+
+        return errorResponse('Image not found or inaccessible', 404);
+      }
+
 
       // ------------------------------------------------------------------
       // Root Health & Metadata Endpoint

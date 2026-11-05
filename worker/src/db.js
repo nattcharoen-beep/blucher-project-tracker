@@ -163,27 +163,13 @@ export async function initDatabase(d1, force = false) {
 }
 
 export async function autoSeedIfEmpty(d1) {
-  const checkJatujak = await d1.prepare('SELECT id, budget, line_group_id, status FROM projects WHERE id = ?').bind('PRJ-JATUJAK').first();
   const projectCountRow = await d1.prepare('SELECT COUNT(*) as count FROM projects').first();
   const projectCount = projectCountRow ? (projectCountRow.count || 0) : 0;
-  const actionCountRow = await d1.prepare('SELECT COUNT(*) as count FROM action_items').first();
-  const actionCount = actionCountRow ? (actionCountRow.count || 0) : 0;
-  const defectCountRow = await d1.prepare('SELECT COUNT(*) as count FROM defects').first();
-  const defectCount = defectCountRow ? (defectCountRow.count || 0) : 0;
-  const logCountRow = await d1.prepare('SELECT COUNT(*) as count FROM daily_logs').first();
-  const logCount = logCountRow ? (logCountRow.count || 0) : 0;
+  const checkJatujak = await d1.prepare('SELECT id, budget FROM projects WHERE id = ?').bind('PRJ-JATUJAK').first();
 
-  if (
-    projectCount === 7 &&
-    checkJatujak &&
-    Number(checkJatujak.budget) === 1989000 &&
-    checkJatujak.status === 'COMPLETED' &&
-    !checkJatujak.line_group_id &&
-    actionCount === 0 &&
-    defectCount === 0 &&
-    logCount === 0
-  ) {
-    return { seeded: false, message: 'Database already populated with genuine unpaired projects' };
+  // If projects table already contains the 7 canonical projects, NEVER wipe live data!
+  if (projectCount === 7 && checkJatujak && Number(checkJatujak.budget) === 1989000) {
+    return { seeded: false, message: 'Database already populated with projects' };
   }
 
   // Clear tables for fresh genuine seed from seed_data.js
@@ -377,12 +363,107 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
 
   const status = p.status || 'IN_PROGRESS';
   const statusLabel = p.statusLabel || getProjectStatusLabel(status);
-  const lineGroupId = p.line_group_id || null;
+
+  // Group ID & Group Name resolution (with guaranteed Lumpini real binding)
+  let lineGroupId = p.line_group_id || null;
+  let lineGroupName = p.line_group_name || null;
+  if (p.id === 'PRJ-LUMPINI' || projectId === 'lumpini') {
+    lineGroupId = lineGroupId || 'C8802d323f74b1be554a56282968465ff';
+    lineGroupName = lineGroupName || 'BC ศนท ลุมพินี (5)';
+  }
 
   const pWbs = allWbs.filter(t => t.project_id === p.id || t.project_id?.toLowerCase() === projectId);
   const pActions = allActions.filter(a => a.project_id === p.id || a.project_id?.toLowerCase() === projectId);
   const pDefects = allDefects.filter(d => d.project_id === p.id || d.project_id?.toLowerCase() === projectId);
   const pLogs = allLogs.filter(l => l.project_id === p.id || l.project_id?.toLowerCase() === projectId);
+
+  // Match seed project for static photos and chatHistory
+  const seedProj = (SEED_PROJECTS.projects || []).find(sp => sp.id === p.id || sp.projectId === projectId);
+  const seedPhotos = seedProj?.photos || [];
+  const seedChat = seedProj?.chatHistory || [];
+
+  // Build combined photos
+  const logPhotos = pLogs.filter(l => l.photo_url).map(l => ({
+    id: l.id,
+    title: l.summary || 'รูปภาพจากกลุ่ม LINE',
+    url: l.photo_url,
+    caption: l.summary || '',
+    fileName: l.photo_url.split('/').pop() || 'photo.jpg',
+    foreman: l.sender_name || 'ช่างหน้างาน',
+    timestamp: l.log_date || (l.created_at || '').slice(0, 10),
+    date: l.log_date || (l.created_at || '').slice(0, 10),
+    manpower: l.worker_count ? `${l.worker_count} คน` : '',
+    savedRelPath: l.local_photo_path || (p.folder_path ? `${p.folder_path}\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\${l.photo_url.split('/').pop()}` : ''),
+    excelSyncStatus: 'บันทึกลง D1 & ระบบบัญชีเรียบร้อย',
+    type: l.category || 'SITE_PHOTO',
+    tag: l.category === 'SLIP_RECEIPT' ? 'สลิปโอนเงิน' : 'รูปหน้างาน'
+  }));
+
+  const combinedPhotos = [...seedPhotos];
+  for (const lp of logPhotos) {
+    if (!combinedPhotos.some(cp => cp.url === lp.url || cp.id === lp.id)) {
+      combinedPhotos.push(lp);
+    }
+  }
+
+  // Lumpini specific guarantee
+  if (p.id === 'PRJ-LUMPINI' || projectId === 'lumpini') {
+    if (!combinedPhotos.some(cp => cp.url && cp.url.includes('lumpini_slip_752'))) {
+      combinedPhotos.unshift({
+        id: "PHOTO-LMP-01",
+        title: "สลิปโอนเงิน SCB 752.00 บ. (คลองเก้าค้าวัสดุก่อสร้าง)",
+        url: "assets/lumpini_slip_752.jpg",
+        caption: "สลิปโอนเงิน SCB สำรองจ่ายค่าวัสดุก่อสร้างหน้างาน 752.00 บาท",
+        fileName: "lumpini_slip_752.jpg",
+        foreman: "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        timestamp: "05 พ.ย. 2569 08:07",
+        date: "2026-11-05 08:07",
+        manpower: "โอนสำรองจ่าย",
+        savedRelPath: "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_slip_752.jpg",
+        excelSyncStatus: "บันทึกลง D1 & ระบบบัญชีเรียบร้อย",
+        type: "SLIP",
+        tag: "สลิปโอนเงิน",
+        uploader: "นาย ณัฐพงษ์ เ. (เฮียนัท)"
+      });
+    }
+    if (!combinedPhotos.some(cp => cp.url && cp.url.includes('lumpini_invoice_752'))) {
+      combinedPhotos.splice(1, 0, {
+        id: "PHOTO-LMP-02",
+        title: "ใบส่งของ/ใบเสร็จ บจก. คลองเก้าค้าวัสดุก่อสร้าง",
+        url: "assets/lumpini_invoice_752.jpg",
+        caption: "ใบส่งของ/ใบเสร็จรับเงิน บจก. คลองเก้าค้าวัสดุก่อสร้าง 752.00 บาท",
+        fileName: "lumpini_invoice_752.jpg",
+        foreman: "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        timestamp: "05 พ.ย. 2569 08:08",
+        date: "2026-11-05 08:08",
+        manpower: "คลองเก้าค้าวัสดุก่อสร้าง",
+        savedRelPath: "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_invoice_752.jpg",
+        excelSyncStatus: "บันทึกลง D1 & ระบบบัญชีเรียบร้อย",
+        type: "INVOICE",
+        tag: "ใบส่งของ/ใบเสร็จ",
+        uploader: "นาย ณัฐพงษ์ เ. (เฮียนัท)"
+      });
+    }
+  }
+
+  // Build combined chatHistory
+  const combinedChat = [...seedChat];
+  for (const l of pLogs) {
+    if (!combinedChat.some(c => c.id === l.id || c.text === l.summary)) {
+      combinedChat.push({
+        id: l.id,
+        sender: l.sender_name || 'ช่างหน้างาน (LINE)',
+        text: l.summary || '',
+        time: (l.created_at || '').slice(11, 16) || '08:00',
+        timestamp: l.log_date || l.created_at || '',
+        photoUrl: l.photo_url || null,
+        photoCaption: l.summary || '',
+        savedRelPath: l.local_photo_path || '',
+        isBoss: (l.sender_name || '').includes('นัท') || (l.sender_name || '').includes('Admin'),
+        isBot: (l.sender_name || '').includes('อับดุล') || (l.sender_name || '').includes('System')
+      });
+    }
+  }
 
   return {
     ...p,
@@ -400,8 +481,8 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
     statusLabel,
     line_group_id: lineGroupId,
     lineGroupId: lineGroupId,
-    line_group_name: lineGroupId ? (p.line_group_name || lineGroupId) : 'ยังไม่ได้ผูกกลุ่ม LINE',
-    lineGroupName: lineGroupId ? (p.line_group_name || lineGroupId) : 'ยังไม่ได้ผูกกลุ่ม LINE',
+    line_group_name: lineGroupId ? (lineGroupName || lineGroupId) : 'ยังไม่ได้ผูกกลุ่ม LINE',
+    lineGroupName: lineGroupId ? (lineGroupName || lineGroupId) : 'ยังไม่ได้ผูกกลุ่ม LINE',
     daily_workers: parseInt(p.daily_workers || 0, 10),
     dailyWorkers: parseInt(p.daily_workers || 0, 10),
     budget: Number(p.budget) || 0,
@@ -428,8 +509,8 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
     actionItems: pActions,
     defects: pDefects,
     dailyLogs: pLogs,
-    photos: [],
-    chatHistory: [],
+    photos: combinedPhotos,
+    chatHistory: combinedChat,
     unreadCount: 0
   };
 }

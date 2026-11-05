@@ -871,8 +871,8 @@ const MASTER_PROJECTS = {
     "folderName": "ศนท ลุมพินี",
     "folderPath": "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท ลุมพินี",
     "aiSubfolder": "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
-    "lineGroupId": null,
-    "lineGroupName": "ยังไม่ได้ผูกกลุ่ม LINE",
+    "lineGroupId": "C8802d323f74b1be554a56282968465ff",
+    "lineGroupName": "BC ศนท ลุมพินี (5)",
     "status": "กำลังดำเนินการก่อสร้าง",
     "statusLabel": "กำลังดำเนินการก่อสร้าง",
     "statusBadgeClass": "bg-sky-500/20 text-sky-300 border-sky-400/30",
@@ -886,23 +886,51 @@ const MASTER_PROJECTS = {
     "progressPlanned": 40,
     "manpowerToday": 0,
     "unreadCount": 0,
-    "lastMessageText": "@NOON โอนคืนเฮียนัทให้หน่อยนะ",
-    "lastMessageTime": "08:08",
+    "lastMessageText": "อับดุล: สวัสดีครับ! บอทอับดุล เข้ากลุ่ม BC ศนท ลุมพินี (5) เรียบร้อยแล้วครับ",
+    "lastMessageTime": "09:10",
     "coreSpecs": "งานรื้อและฉาบสระว่ายน้ำ 400 ตร.ม. | รื้อทรายล้างรอบสระ 270 ตร.ม. และสั่งวัสดุพื้นยาง EPDM 270 ตร.ม. (เม็ดยางเขียว 1,800 กก. = 72 ถุง) | งานท่อน้ำดีแยก 4 สาย 1 เมนวาล์ว 30 ม. | กระเบื้องผนัง Duragres 30x60 & RCI ไบเด้น 30x30 | โคมดาวน์ไลท์ CARINI หลอด HITEK 40 จุด | ซ่อมเพดาน Sika",
     "chatHistory": [
       {
         "id": "MSG-LMP-01",
-        "sender": "นาย ณัฐพงษ์ เ. (พี่นัท)",
-        "type": "slip",
+        "sender": "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        "isBoss": true,
+        "role": "boss",
         "text": "สลิปโอนเงิน SCB สำเร็จ 752.00 บาท ไปยัง คลองเก้าค้าวัสดุก่อสร้าง (Ref: 20261105052aO5IDKrAfvP5qk)",
-        "timestamp": "05 พ.ย. 2569 08:07"
+        "time": "08:07",
+        "timestamp": "05 พ.ย. 2569 08:07",
+        "photoUrl": "assets/lumpini_slip_752.jpg",
+        "photoCaption": "สลิปโอนเงิน SCB 752.00 บ. (คลองเก้าค้าวัสดุก่อสร้าง)",
+        "savedRelPath": "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_slip_752.jpg"
+      },
+      {
+        "id": "PHOTO-LMP-02-MSG",
+        "sender": "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        "isBoss": true,
+        "role": "boss",
+        "text": "บิลเงินสด/ใบส่งของ บจก. คลองเก้าค้าวัสดุก่อสร้าง (752.00 บาท)",
+        "time": "08:08",
+        "timestamp": "05 พ.ย. 2569 08:08",
+        "photoUrl": "assets/lumpini_invoice_752.jpg",
+        "photoCaption": "ใบเสร็จ/บิลรายการสินค้า คลองเก้าค้าวัสดุก่อสร้าง 752 บาท",
+        "savedRelPath": "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_invoice_752.jpg"
       },
       {
         "id": "MSG-LMP-02",
-        "sender": "นาย ณัฐพงษ์ เ. (พี่นัท)",
-        "type": "text",
+        "sender": "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        "isBoss": true,
+        "role": "boss",
         "text": "@NOON โอนคืนเฮียนัทให้หน่อยนะ",
+        "time": "08:08",
         "timestamp": "05 พ.ย. 2569 08:08"
+      },
+      {
+        "id": "MSG-LMP-03",
+        "sender": "อับดุล AI (Blucher BuildTrack)",
+        "isBot": true,
+        "role": "bot",
+        "text": "สวัสดีครับ! บอทอับดุล (Blucher BuildTrack) เข้ากลุ่ม \"BC ศนท ลุมพินี (5)\" เรียบร้อยแล้วครับ 👷‍♂️\n✅ เชื่อมต่อกับโครงการ \"ศนท ลุมพินี\" โดยอัตโนมัติแล้วครับ!\n\nพร้อมบันทึกความคืบหน้า รายงานช่าง สั่งงาน และตรวจรับสลิป/รูปหน้างานทันทีครับ",
+        "time": "09:10",
+        "timestamp": "05 พ.ย. 2569 09:10"
       }
     ],
     "wbsTasks": [
@@ -950,7 +978,40 @@ const MASTER_PROJECTS = {
       }
     ],
     "defects": [],
-    "photos": [],
+    "photos": [
+      {
+        "id": "PHOTO-LMP-01",
+        "title": "สลิปโอนเงิน SCB 752.00 บ. (คลองเก้าค้าวัสดุก่อสร้าง)",
+        "url": "assets/lumpini_slip_752.jpg",
+        "caption": "สลิปโอนเงิน SCB สำรองจ่ายค่าวัสดุก่อสร้างหน้างาน 752.00 บาท",
+        "fileName": "lumpini_slip_752.jpg",
+        "foreman": "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        "timestamp": "05 พ.ย. 2569 08:07",
+        "date": "2026-11-05 08:07",
+        "manpower": "โอนสำรองจ่าย",
+        "savedRelPath": "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_slip_752.jpg",
+        "excelSyncStatus": "บันทึกลง D1 & ระบบบัญชีเรียบร้อย",
+        "type": "SLIP",
+        "tag": "สลิปโอนเงิน",
+        "uploader": "นาย ณัฐพงษ์ เ. (เฮียนัท)"
+      },
+      {
+        "id": "PHOTO-LMP-02",
+        "title": "ใบส่งของ/ใบเสร็จ บจก. คลองเก้าค้าวัสดุก่อสร้าง",
+        "url": "assets/lumpini_invoice_752.jpg",
+        "caption": "ใบส่งของ/ใบเสร็จรับเงิน บจก. คลองเก้าค้าวัสดุก่อสร้าง 752.00 บาท",
+        "fileName": "lumpini_invoice_752.jpg",
+        "foreman": "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        "timestamp": "05 พ.ย. 2569 08:08",
+        "date": "2026-11-05 08:08",
+        "manpower": "คลองเก้าค้าวัสดุก่อสร้าง",
+        "savedRelPath": "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_invoice_752.jpg",
+        "excelSyncStatus": "บันทึกลง D1 & ระบบบัญชีเรียบร้อย",
+        "type": "INVOICE",
+        "tag": "ใบส่งของ/ใบเสร็จ",
+        "uploader": "นาย ณัฐพงษ์ เ. (เฮียนัท)"
+      }
+    ],
     "contractors": [
       {
         "name": "ช่างตี้ (วุฒิธินันต์ สมชอบ)",
@@ -1220,12 +1281,13 @@ let appState = {
 // =============================================================================
 // 2. INITIALIZATION & LIFECYCLE
 // =============================================================================
-const STORAGE_KEY = "blucher_projects_v5_real";
+const STORAGE_KEY = "blucher_projects_v6_real";
 
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("Blucher BuildTrack Initializing with Unified LINE 7-Group Inbox...");
   try {
     localStorage.removeItem("blucher_projects_v4_real");
+    localStorage.removeItem("blucher_projects_v5_real");
   } catch (e) {}
   
   // Try fetching bootstrap data from backend /api/bootstrap
@@ -2776,8 +2838,17 @@ function renderActiveRoomChat() {
               <span class="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold">พี่นัท (Admin)</span>
               <span>${msg.time}</span>
             </div>
-            <div class="line-bubble-boss p-3 text-xs leading-relaxed shadow-sm">
-              ${escapeHtml(msg.text)}
+            <div class="line-bubble-boss p-3 text-xs leading-relaxed shadow-sm space-y-2">
+              <p>${escapeHtml(msg.text)}</p>
+              ${msg.photoUrl ? `
+                <div class="rounded-xl overflow-hidden cursor-pointer mt-1" onclick="openLightbox('${msg.photoUrl}', '${escapeHtml(msg.photoCaption || '')}')">
+                  <img src="${msg.photoUrl}" alt="Photo" class="w-full max-h-48 object-cover rounded-lg border border-emerald-400/30">
+                  <div class="text-[9px] text-white/80 mt-1 font-mono-code flex items-center gap-1">
+                    <i class="fa-solid fa-hard-drive"></i>
+                    <span class="truncate">${escapeHtml(msg.savedRelPath || 'บันทึกลงคอมพิวเตอร์แล้ว')}</span>
+                  </div>
+                </div>
+              ` : ''}
             </div>
           </div>
           <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 mt-3">

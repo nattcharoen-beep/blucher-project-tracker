@@ -320,10 +320,10 @@ const REAL_PROJECTS = [
     folder_path: "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท ลุมพินี",
     folderPath: "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท ลุมพินี",
     folderName: "ศนท ลุมพินี",
-    line_group_id: null,
-    lineGroupId: null,
-    line_group_name: "ยังไม่ได้ผูกกลุ่ม LINE",
-    lineGroupName: "ยังไม่ได้ผูกกลุ่ม LINE",
+    line_group_id: "C8802d323f74b1be554a56282968465ff",
+    lineGroupId: "C8802d323f74b1be554a56282968465ff",
+    line_group_name: "BC ศนท ลุมพินี (5)",
+    lineGroupName: "BC ศนท ลุมพินี (5)",
     status: "IN_PROGRESS",
     statusLabel: "กำลังดำเนินการก่อสร้าง",
     period: "กำหนดส่งมอบช่วงท้ายปี 2569",
@@ -355,8 +355,8 @@ const REAL_PROJECTS = [
       { role: "ขนขยะ 2 เที่ยว @ 1,000 บ.", name: "พัฒน์", phone: "-", company: "พัฒน์บริการขนส่ง", total_amount: 2000, paid_amount: 2000, remaining: 0, status: "PAID", milestones: "จ่ายครบแล้ว 2,000 บ." }
     ],
     materials: [
-      { name: "เม็ดยางเขียว EPDM 270 ตร.ม.", quantity: "1,800 กก. (72 ถุง)", unit: "ถุง", cost: 144000, supplier: "คลังบลูเคอร์", status: "เตรียมจัดส่ง" },
-      { name: "กระเบื้องผนัง Duragres 30x60 & RCI 30x30", quantity: "1 ชุด", unit: "ชุด", cost: 45000, supplier: "ร้านกระเบื้อง", status: "สั่งซื้อแล้ว" },
+      { name: "เม็ดยางเขียว EPDM 270 ตร.ม.", quantity: "1,800 กก. (72 ถุง)", unit: "ถุง", cost: 144000, supplier: "เตรียมจัดส่ง", status: "เตรียมจัดส่ง" },
+      { name: "กระเบื้องผนัง Duragres 30x60 & RCI 30x30", quantity: "1 ชุด", unit: "ชุด", cost: 45000, supplier: "ร้านค้ากระเบื้อง", status: "สั่งซื้อแล้ว" },
       { name: "วัสดุก่อสร้างหน้างาน (บจก.คลองเก้าค้าวัสดุก่อสร้าง)", quantity: "1 บิล", unit: "บิล", cost: 752, supplier: "บจก. คลองเก้าค้าวัสดุก่อสร้าง", status: "จ่ายแล้ว (สลิป SCB 05/11/26 08:07 น. Ref: 20261105052aO5IDKrAfvP5qk)" }
     ],
     wbsTasks: [
@@ -377,24 +377,128 @@ const REAL_PROJECTS = [
       }
     ],
     defects: [],
-    dailyLogs: [],
+    dailyLogs: [
+      {
+        id: "LOG-LMP-01",
+        project_id: "PRJ-LUMPINI",
+        log_date: "2026-11-05",
+        summary: "โอนสำรองจ่ายค่าวัสดุก่อสร้างหน้างาน บจก. คลองเก้าค้าวัสดุก่อสร้าง 752.00 บาท (สลิป SCB Ref: 20261105052aO5IDKrAfvP5qk)",
+        area_sqm_done: 0,
+        worker_count: 0,
+        sender_name: "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        photo_url: "assets/lumpini_slip_752.jpg",
+        local_photo_path: "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_slip_752.jpg",
+        category: "SLIP_RECEIPT",
+        synced_to_pc: 1,
+        created_at: "2026-11-05T08:07:00+07:00"
+      },
+      {
+        id: "LOG-LMP-02",
+        project_id: "PRJ-LUMPINI",
+        log_date: "2026-11-05",
+        summary: "ใบส่งของ/ใบเสร็จรับเงิน บจก. คลองเก้าค้าวัสดุก่อสร้าง ค่าวัสดุก่อสร้างหน้างาน 752.00 บาท",
+        area_sqm_done: 0,
+        worker_count: 0,
+        sender_name: "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        photo_url: "assets/lumpini_invoice_752.jpg",
+        local_photo_path: "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_invoice_752.jpg",
+        category: "MATERIAL_INVOICE",
+        synced_to_pc: 1,
+        created_at: "2026-11-05T08:08:00+07:00"
+      },
+      {
+        id: "LOG-LMP-03",
+        project_id: "PRJ-LUMPINI",
+        log_date: "2026-11-05",
+        summary: "บอทอับดุล (Blucher BuildTrack) เข้ากลุ่ม \"BC ศนท ลุมพินี (5)\" และเชื่อมต่อกับโครงการสำเร็จ",
+        area_sqm_done: 0,
+        worker_count: 0,
+        sender_name: "อับดุล AI (System)",
+        photo_url: "",
+        local_photo_path: "",
+        category: "SYSTEM_EVENT",
+        synced_to_pc: 1,
+        created_at: "2026-11-05T09:10:00+07:00"
+      }
+    ],
     chatHistory: [
       {
         id: "MSG-LMP-01",
-        sender: "นาย ณัฐพงษ์ เ. (พี่นัท)",
-        type: "slip",
+        sender: "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        isBoss: true,
+        role: "boss",
         text: "สลิปโอนเงิน SCB สำเร็จ 752.00 บาท ไปยัง คลองเก้าค้าวัสดุก่อสร้าง (Ref: 20261105052aO5IDKrAfvP5qk)",
-        timestamp: "05 พ.ย. 2569 08:07"
+        time: "08:07",
+        timestamp: "05 พ.ย. 2569 08:07",
+        photoUrl: "assets/lumpini_slip_752.jpg",
+        photoCaption: "สลิปโอนเงิน SCB 752.00 บ. (คลองเก้าค้าวัสดุก่อสร้าง)",
+        savedRelPath: "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_slip_752.jpg"
+      },
+      {
+        id: "PHOTO-LMP-02-MSG",
+        sender: "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        isBoss: true,
+        role: "boss",
+        text: "บิลเงินสด/ใบส่งของ บจก. คลองเก้าค้าวัสดุก่อสร้าง (752.00 บาท)",
+        time: "08:08",
+        timestamp: "05 พ.ย. 2569 08:08",
+        photoUrl: "assets/lumpini_invoice_752.jpg",
+        photoCaption: "ใบเสร็จ/บิลรายการสินค้า คลองเก้าค้าวัสดุก่อสร้าง 752 บาท",
+        savedRelPath: "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_invoice_752.jpg"
       },
       {
         id: "MSG-LMP-02",
-        sender: "นาย ณัฐพงษ์ เ. (พี่นัท)",
-        type: "text",
+        sender: "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        isBoss: true,
+        role: "boss",
         text: "@NOON โอนคืนเฮียนัทให้หน่อยนะ",
+        time: "08:08",
         timestamp: "05 พ.ย. 2569 08:08"
+      },
+      {
+        id: "MSG-LMP-03",
+        sender: "อับดุล AI (Blucher BuildTrack)",
+        isBot: true,
+        role: "bot",
+        text: "สวัสดีครับ! บอทอับดุล (Blucher BuildTrack) เข้ากลุ่ม \"BC ศนท ลุมพินี (5)\" เรียบร้อยแล้วครับ 👷‍♂️\n✅ เชื่อมต่อกับโครงการ \"ศนท ลุมพินี\" โดยอัตโนมัติแล้วครับ!\n\nพร้อมบันทึกความคืบหน้า รายงานช่าง สั่งงาน และตรวจรับสลิป/รูปหน้างานทันทีครับ",
+        time: "09:10",
+        timestamp: "05 พ.ย. 2569 09:10"
       }
     ],
-    photos: [],
+    photos: [
+      {
+        id: "PHOTO-LMP-01",
+        title: "สลิปโอนเงิน SCB 752.00 บ. (คลองเก้าค้าวัสดุก่อสร้าง)",
+        url: "assets/lumpini_slip_752.jpg",
+        caption: "สลิปโอนเงิน SCB สำรองจ่ายค่าวัสดุก่อสร้างหน้างาน 752.00 บาท วันที่ 05 พ.ย. 2569 08:07 น. Ref: 20261105052aO5IDKrAfvP5qk",
+        fileName: "lumpini_slip_752.jpg",
+        foreman: "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        timestamp: "05 พ.ย. 2569 08:07",
+        date: "2026-11-05 08:07",
+        manpower: "โอนสำรองจ่าย",
+        savedRelPath: "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_slip_752.jpg",
+        excelSyncStatus: "บันทึกลง D1 & ระบบบัญชีเรียบร้อย",
+        type: "SLIP",
+        tag: "สลิปโอนเงิน",
+        uploader: "นาย ณัฐพงษ์ เ. (เฮียนัท)"
+      },
+      {
+        id: "PHOTO-LMP-02",
+        title: "ใบส่งของ/ใบเสร็จ บจก. คลองเก้าค้าวัสดุก่อสร้าง",
+        url: "assets/lumpini_invoice_752.jpg",
+        caption: "ใบเสร็จ/บิลรายการสินค้า บจก. คลองเก้าค้าวัสดุก่อสร้าง ยอด 752.00 บาท (05 พ.ย. 2569 08:08 น.)",
+        fileName: "lumpini_invoice_752.jpg",
+        foreman: "นาย ณัฐพงษ์ เ. (เฮียนัท)",
+        timestamp: "05 พ.ย. 2569 08:08",
+        date: "2026-11-05 08:08",
+        manpower: "คลองเก้าค้าวัสดุก่อสร้าง",
+        savedRelPath: "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\lumpini_invoice_752.jpg",
+        excelSyncStatus: "บันทึกลง D1 & ระบบบัญชีเรียบร้อย",
+        type: "INVOICE",
+        tag: "ใบส่งของ/ใบเสร็จ",
+        uploader: "นาย ณัฐพงษ์ เ. (เฮียนัท)"
+      }
+    ],
     sourceFiles: [
       "cost ศนท ลุมพินี.xlsx",
       "แบบ ปร.4 ปร.5 ลุมพินี.pdf"
@@ -536,9 +640,9 @@ const seedJs = `// Auto-generated 100% Real Reference Data (Zero synthetic data 
 export const SEED_PROJECTS = ${JSON.stringify(masterData, null, 2)};
 export const projects = SEED_PROJECTS.projects;
 export const wbsTasks = SEED_PROJECTS.projects.flatMap(p => p.wbsTasks || []);
-export const actionItems = [];
-export const defects = [];
-export const dailyLogs = [];
+export const actionItems = SEED_PROJECTS.projects.flatMap(p => p.actionItems || []);
+export const defects = SEED_PROJECTS.projects.flatMap(p => p.defects || []);
+export const dailyLogs = SEED_PROJECTS.projects.flatMap(p => p.dailyLogs || []);
 export const settings = [
   { key: 'group_reply_confirm_toggle', value: 'false' },
   { key: 'bot_name', value: 'อับดุล' },

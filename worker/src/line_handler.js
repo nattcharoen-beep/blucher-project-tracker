@@ -274,6 +274,16 @@ export async function processSingleLineEvent(event, env) {
         await bindProjectLineGroup(d1, matchedId, groupId);
         const targetProj = await getProjectById(d1, matchedId);
         const pName = targetProj ? (targetProj.name || targetProj.short_name) : matchedId;
+
+        await createDailyLog(d1, {
+          project_id: matchedId,
+          summary: `🤖 บอทอับดุลเข้ากลุ่มไลน์ "${groupName}" และเชื่อมต่อกับโครงการสำเร็จ`,
+          worker_count: 0,
+          area_sqm_done: 0,
+          sender_name: 'ระบบอับดุล (System)',
+          category: 'SYSTEM_EVENT'
+        });
+
         const msg = `สวัสดีครับ! บอทอับดุล (Blucher BuildTrack) เข้ากลุ่ม "${groupName}" เรียบร้อยแล้วครับ 👷‍♂️\n` +
                     `✅ เชื่อมต่อกับโครงการ "${pName}" โดยอัตโนมัติแล้วครับ!\n\n` +
                     `พร้อมบันทึกความคืบหน้า รายงานช่าง สั่งงาน และตรวจรับสลิป/รูปหน้างานทันทีครับ`;
@@ -337,8 +347,9 @@ export async function processSingleLineEvent(event, env) {
       const text = (message.text || '').trim();
 
       // Step 1: Use direct fast binding check or W-3 AI engine command parsing
-      const bindMatch = text.match(/(?:ผูก|เชื่อม)(?:กับ|เข้ากับ)?(?:โครงการ|กลุ่มนี้กับ|กลุ่มกับ|ไซต์)?\s*(.+)/i) ||
-                        text.match(/^(?:ผูก|เชื่อม)\s*(จตุจักร|บางนา|บางแค|สะพานสูง|ลุมพินี|ปราจีน|แม่ฮ่องสอน)/i);
+      const cleanBindText = text.replace(/^@?(?:อับดุล|บอท|abdul|bot)\s*/i, '').trim();
+      const bindMatch = cleanBindText.match(/(?:ผูก|เชื่อม)(?:กับ|เข้ากับ)?(?:โครงการ|กลุ่มนี้กับ|กลุ่มกับ|ไซต์|กลุ่ม)?\s*(.+)/i) ||
+                        cleanBindText.match(/^(?:ผูก|เชื่อม)\s*(จตุจักร|บางนา|บางแค|สะพานสูง|ลุมพินี|ปราจีน|แม่ฮ่องสอน|ศนท|อบต|พี่บอม)/i);
       let parsedCmd = null;
       if (bindMatch) {
         parsedCmd = { type: 'BIND_GROUP', targetProjectName: bindMatch[1].trim() };
@@ -626,12 +637,20 @@ export async function processSingleLineEvent(event, env) {
     if (msgType === 'image') {
       const projectId = project ? project.id : 'PRJ-UNASSIGNED';
       const messageId = message.id || 'IMG-' + Date.now();
+      const photoProxyUrl = `https://blucher-project-tracker.natt-charoen.workers.dev/api/line-image/${messageId}`;
+
+      let imgBase64 = null;
+      try {
+        imgBase64 = await fetchLineImageBase64(messageId, channelAccessToken);
+      } catch (e) {
+        console.warn('Failed to fetch image binary from LINE:', e.message);
+      }
 
       await savePhotoBuffer(d1, {
         group_id: groupId,
         project_id: projectId,
         message_id: messageId,
-        photo_data: message.contentProvider?.originalContentUrl || '',
+        photo_data: imgBase64 || message.contentProvider?.originalContentUrl || photoProxyUrl,
         sender_name: 'ช่างหน้างาน (LINE)'
       });
 
@@ -641,7 +660,7 @@ export async function processSingleLineEvent(event, env) {
         worker_count: 0,
         area_sqm_done: 0,
         sender_name: 'ช่างหน้างาน (LINE)',
-        photo_url: message.contentProvider?.originalContentUrl || `https://api-data.line.me/v2/bot/message/${messageId}/content`,
+        photo_url: photoProxyUrl,
         category: 'SITE_PHOTO'
       });
 
