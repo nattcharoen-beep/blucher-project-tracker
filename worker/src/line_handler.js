@@ -378,7 +378,7 @@ export async function processSingleLineEvent(event, env) {
       }
 
       // 100% Full Chat History: Record EVERY single chat message into daily_logs in D1
-      await createDailyLog(d1, {
+      const initialLog = await createDailyLog(d1, {
         project_id: projectId,
         summary: text,
         worker_count: 0,
@@ -548,31 +548,29 @@ export async function processSingleLineEvent(event, env) {
             if (extraction && extraction.hasSiteUpdate) {
               extractedSomething = true;
 
-              // Save Daily Log based on category
-              if (extraction.category === 'PAYMENT_LOG') {
-                const amtStr = extraction.amount ? `${Number(extraction.amount).toLocaleString()} บาท` : '';
-                await createDailyLog(d1, {
-                  project_id: projectId,
-                  summary: `💰 ${extraction.title || text} (ยอดเงิน: ${amtStr || '-'})`,
-                  worker_count: 0,
-                  area_sqm_done: 0,
-                  sender_name: senderName,
-                  category: 'PAYMENT_LOG'
-                });
-                if (extraction.amount && Number(extraction.amount) > 0) {
-                  await d1.prepare('UPDATE projects SET actual_cost = actual_cost + ?, updated_at = ? WHERE id = ?')
-                    .bind(Number(extraction.amount), new Date().toISOString(), projectId)
+              // Update initialLog category and details instead of creating duplicate log!
+              if (initialLog && initialLog.id) {
+                if (extraction.category === 'PAYMENT_LOG') {
+                  const amtStr = extraction.amount ? `${Number(extraction.amount).toLocaleString()} บาท` : '';
+                  await d1.prepare('UPDATE daily_logs SET summary = ?, category = ? WHERE id = ?')
+                    .bind(`💰 ${extraction.title || text} (ยอดเงิน: ${amtStr || '-'})`, 'PAYMENT_LOG', initialLog.id)
+                    .run();
+                  if (extraction.amount && Number(extraction.amount) > 0) {
+                    await d1.prepare('UPDATE projects SET actual_cost = actual_cost + ?, updated_at = ? WHERE id = ?')
+                      .bind(Number(extraction.amount), new Date().toISOString(), projectId)
+                      .run();
+                  }
+                } else {
+                  await d1.prepare('UPDATE daily_logs SET summary = ?, area_sqm_done = ?, worker_count = ?, category = ? WHERE id = ?')
+                    .bind(
+                      extraction.summary || extraction.title || text,
+                      Number(extraction.areaSqm) || 0,
+                      parseInt(extraction.workerCount || 0, 10),
+                      extraction.category || 'WORK_REPORT',
+                      initialLog.id
+                    )
                     .run();
                 }
-              } else {
-                await createDailyLog(d1, {
-                  project_id: projectId,
-                  summary: extraction.summary || extraction.title || text,
-                  area_sqm_done: extraction.areaSqm || 0,
-                  worker_count: extraction.workerCount || 0,
-                  sender_name: senderName,
-                  category: extraction.category || 'WORK_REPORT'
-                });
               }
 
               // Save Defects if detected
@@ -672,15 +670,10 @@ export async function processSingleLineEvent(event, env) {
           isActionItem = true;
         }
 
-        if (workerCount > 0 || areaSqm > 0 || extractedSomething || text.length > 20) {
-          await createDailyLog(d1, {
-            project_id: projectId,
-            summary: text,
-            worker_count: workerCount,
-            area_sqm_done: areaSqm,
-            sender_name: 'ช่างหน้างาน (LINE)',
-            category: 'WORK_REPORT'
-          });
+        if (initialLog && initialLog.id && (workerCount > 0 || areaSqm > 0 || extractedSomething)) {
+          await d1.prepare('UPDATE daily_logs SET area_sqm_done = ?, worker_count = ?, category = ? WHERE id = ?')
+            .bind(Number(areaSqm) || 0, parseInt(workerCount || 0, 10), 'WORK_REPORT', initialLog.id)
+            .run();
         }
 
         // Update project table for worker count and progress
@@ -733,7 +726,7 @@ export async function processSingleLineEvent(event, env) {
         sender_name: 'ช่างหน้างาน (LINE)'
       });
 
-      await createDailyLog(d1, {
+      const photoLog = await createDailyLog(d1, {
         project_id: projectId,
         summary: '📷 ได้รับรูปภาพหน้างานจากกลุ่ม LINE',
         worker_count: 0,
@@ -758,15 +751,12 @@ export async function processSingleLineEvent(event, env) {
 
             if (visionResult && visionResult.category === 'PAYMENT_SLIP') {
               const amtStr = visionResult.amount ? `${Number(visionResult.amount).toLocaleString()} บาท` : '';
-              await createDailyLog(d1, {
-                project_id: projectId,
-                summary: `🧾 สลิปโอนเงิน: ${amtStr} ${visionResult.vendorName || ''} (Ref: ${visionResult.refCode || '-'})`.trim(),
-                worker_count: 0,
-                area_sqm_done: 0,
-                sender_name: 'ช่างหน้างาน (LINE)',
-                photo_url: photoProxyUrl,
-                category: 'PAYMENT_SLIP'
-              });
+              const slipSummary = `🧾 สลิปโอนเงิน: ${amtStr} ${visionResult.vendorName || ''} (Ref: ${visionResult.refCode || '-'})`.trim();
+              if (photoLog && photoLog.id) {
+                await d1.prepare('UPDATE daily_logs SET summary = ?, category = ? WHERE id = ?')
+                  .bind(slipSummary, 'PAYMENT_SLIP', photoLog.id)
+                  .run();
+              }
               if (visionResult.amount && Number(visionResult.amount) > 0) {
                 await d1.prepare('UPDATE projects SET actual_cost = actual_cost + ?, updated_at = ? WHERE id = ?')
                   .bind(Number(visionResult.amount), new Date().toISOString(), projectId)

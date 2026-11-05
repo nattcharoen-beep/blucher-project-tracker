@@ -639,6 +639,7 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
     dailyLogs: pLogs,
     photos: combinedPhotos,
     chatHistory: combinedChat,
+    combinedChat: combinedChat,
     unreadCount: 0
   };
 }
