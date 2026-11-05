@@ -1,6 +1,6 @@
 // Auto-generated 100% Real Reference Data (Zero synthetic data per 03_safety_and_integrity.md)
 export const SEED_PROJECTS = {
-  "generated_at": "2026-11-05T01:37:13.253Z",
+  "generated_at": "2026-11-05T01:45:03.538Z",
   "total_projects": 7,
   "projects": [
     {
@@ -18,8 +18,8 @@ export const SEED_PROJECTS = {
       "lineGroupId": null,
       "line_group_name": "ยังไม่ได้ผูกกลุ่ม LINE",
       "lineGroupName": "ยังไม่ได้ผูกกลุ่ม LINE",
-      "status": "COMPLETED",
-      "statusLabel": "ส่งมอบงานแล้ว",
+      "status": "IN_PROGRESS",
+      "statusLabel": "กำลังดำเนินการก่อสร้าง",
       "period": "18 พ.ค. 2569 – 15 ก.ย. 2569 (120 วัน)",
       "budget": 1989000,
       "contractBudget": 1989000,
@@ -29,10 +29,10 @@ export const SEED_PROJECTS = {
       "actualCost": 193891,
       "expectedProfit": 467427,
       "profitMargin": 23.5,
-      "planned_progress": 100,
-      "plannedProgress": 100,
-      "actual_progress": 100,
-      "actualProgress": 100,
+      "planned_progress": 40,
+      "plannedProgress": 40,
+      "actual_progress": 35,
+      "actualProgress": 35,
       "start_date": "2026-05-18",
       "startDate": "2026-05-18",
       "end_date": "2026-09-15",

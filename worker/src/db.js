@@ -173,7 +173,7 @@ export async function autoSeedIfEmpty(d1) {
     projectCount === 7 &&
     checkJatujak &&
     Number(checkJatujak.budget) === 1989000 &&
-    checkJatujak.status === 'COMPLETED' &&
+    checkJatujak.status === 'IN_PROGRESS' &&
     !checkJatujak.line_group_id &&
     actionCount === 0 &&
     defectCount === 0 &&
