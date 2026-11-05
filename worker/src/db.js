@@ -167,9 +167,9 @@ export async function autoSeedIfEmpty(d1) {
   const projectCount = projectCountRow ? (projectCountRow.count || 0) : 0;
   const checkJatujak = await d1.prepare('SELECT id, budget FROM projects WHERE id = ?').bind('PRJ-JATUJAK').first();
 
-  // If projects table already contains the 7 canonical projects, NEVER wipe live data!
-  if (projectCount === 7 && checkJatujak && Number(checkJatujak.budget) === 1989000) {
-    return { seeded: false, message: 'Database already populated with projects' };
+  // If projects table already contains projects, NEVER wipe live data!
+  if (projectCount > 0 || (checkJatujak && Number(checkJatujak.budget) === 1989000)) {
+    return { seeded: false, message: `Database already populated with ${projectCount} projects` };
   }
 
   // Clear tables for fresh genuine seed from seed_data.js
@@ -223,8 +223,8 @@ export async function autoSeedIfEmpty(d1) {
       p.updated_at || now
     ).run();
 
-    // Insert this project's WBS tasks
-    const pWbs = p.wbsTasks || [];
+    // Insert this project's WBS tasks (supports both wbsTasks and wbs)
+    const pWbs = p.wbsTasks || p.wbs || [];
     for (const t of pWbs) {
       await d1.prepare(`
         INSERT INTO wbs_tasks (
@@ -234,12 +234,12 @@ export async function autoSeedIfEmpty(d1) {
       `).bind(
         t.id || 'WBS-' + Math.random().toString(36).slice(2, 9),
         p.id,
-        t.task_code || '',
+        t.task_code || t.code || '',
         t.title || t.name || '',
-        Number(t.weight_percent) || 0,
-        Number(t.progress_percent || t.pct) || 0,
+        Number(t.weight_percent ?? t.weight ?? t.planned) || 0,
+        Number(t.progress_percent ?? t.actual ?? t.pct ?? t.progress) || 0,
         t.status || 'PENDING',
-        t.assignee || '',
+        t.assignee || t.owner || '',
         t.start_date || '',
         t.due_date || ''
       ).run();
@@ -372,15 +372,94 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
     lineGroupName = lineGroupName || 'BC ศนท ลุมพินี (5)';
   }
 
-  const pWbs = allWbs.filter(t => t.project_id === p.id || t.project_id?.toLowerCase() === projectId);
-  const pActions = allActions.filter(a => a.project_id === p.id || a.project_id?.toLowerCase() === projectId);
-  const pDefects = allDefects.filter(d => d.project_id === p.id || d.project_id?.toLowerCase() === projectId);
-  const pLogs = allLogs.filter(l => l.project_id === p.id || l.project_id?.toLowerCase() === projectId);
-
-  // Match seed project for static photos and chatHistory
-  const seedProj = (SEED_PROJECTS.projects || []).find(sp => sp.id === p.id || sp.projectId === projectId);
+  // Match seed project for static photos, chatHistory, and fallback child records
+  const seedProj = (SEED_PROJECTS.projects || []).find(sp => sp.id === p.id || sp.projectId === projectId || (sp.id && sp.id.replace(/^PRJ-/i, '').toLowerCase() === projectId));
   const seedPhotos = seedProj?.photos || [];
   const seedChat = seedProj?.chatHistory || [];
+
+  let pWbs = allWbs.filter(t => t.project_id === p.id || t.project_id?.toLowerCase() === projectId);
+  if (pWbs.length === 0 && seedProj && Array.isArray(seedProj.wbsTasks) && seedProj.wbsTasks.length > 0) {
+    pWbs = seedProj.wbsTasks;
+  }
+  const mappedWbs = pWbs.map((t, idx) => {
+    const weightVal = Number(t.weight_percent ?? t.weight ?? t.planned ?? 0) || 0;
+    const progressVal = Number(t.progress_percent ?? t.actual ?? t.progress ?? t.pct ?? 0) || 0;
+    const titleVal = t.title || t.name || t.task_code || `งานส่วนที่ ${idx + 1}`;
+    const assigneeVal = t.assignee || t.owner || 'ช่างหน้างาน';
+    return {
+      ...t,
+      id: t.id || `WBS-${projectId.toUpperCase()}-${String(idx + 1).padStart(2, '0')}`,
+      project_id: p.id,
+      task_code: t.task_code || t.code || `${idx + 1}`,
+      code: t.task_code || t.code || `${idx + 1}`,
+      title: titleVal,
+      name: titleVal,
+      weight_percent: weightVal,
+      weight: weightVal,
+      planned: weightVal,
+      progress_percent: progressVal,
+      actual: progressVal,
+      progress: progressVal,
+      pct: progressVal,
+      status: t.status || (progressVal === 100 ? 'เสร็จสิ้น' : progressVal > 0 ? 'กำลังทำ' : 'รอดำเนินการ'),
+      assignee: assigneeVal,
+      owner: assigneeVal,
+      start_date: t.start_date || '',
+      due_date: t.due_date || '',
+      category: t.category || (t.task_code ? `หมวด ${t.task_code}` : 'งานโครงสร้าง/สเปก'),
+      period: t.period || (t.start_date && t.due_date ? `${t.start_date} – ${t.due_date}` : (t.due_date ? `กำหนดส่ง ${t.due_date}` : 'ตามแผนงาน'))
+    };
+  });
+
+  let pActions = allActions.filter(a => a.project_id === p.id || a.project_id?.toLowerCase() === projectId);
+  if (pActions.length === 0 && seedProj && Array.isArray(seedProj.actionItems) && seedProj.actionItems.length > 0) {
+    pActions = seedProj.actionItems;
+  }
+  const mappedActions = pActions.map((a, idx) => ({
+    ...a,
+    id: a.id || `ACT-${projectId.toUpperCase()}-${String(idx + 1).padStart(2, '0')}`,
+    project_id: p.id,
+    title: a.title || a.name || 'คำสั่งการ',
+    name: a.title || a.name || 'คำสั่งการ',
+    assignee: a.assignee || 'ช่างหน้างาน',
+    due_date: a.due_date || a.deadline || '',
+    deadline: a.due_date || a.deadline || '',
+    status: a.status || (a.completed ? 'DONE' : 'OPEN'),
+    completed: a.completed !== undefined ? a.completed : (a.status === 'DONE' || a.status === 'COMPLETED'),
+    assigned_by: a.assigned_by || a.orderedBy || 'พี่นัท',
+    orderedBy: a.assigned_by || a.orderedBy || 'พี่นัท',
+    raw_message: a.raw_message || a.quote || '',
+    quote: a.raw_message || a.quote || '',
+    created_at: a.created_at || a.timestamp || ''
+  }));
+
+  let pDefects = allDefects.filter(d => d.project_id === p.id || d.project_id?.toLowerCase() === projectId);
+  if (pDefects.length === 0 && seedProj && Array.isArray(seedProj.defects) && seedProj.defects.length > 0) {
+    pDefects = seedProj.defects;
+  }
+  const mappedDefects = pDefects.map((d, idx) => ({
+    ...d,
+    id: d.id || `DEF-${projectId.toUpperCase()}-${String(idx + 1).padStart(2, '0')}`,
+    project_id: p.id,
+    code: d.code || d.id || `DEF-${idx + 1}`,
+    title: d.title || d.desc || d.description || 'ข้อบกพร่อง',
+    description: d.description || d.desc || d.title || '',
+    zone: d.zone || d.location || 'หน้างาน',
+    location: d.zone || d.location || 'หน้างาน',
+    severity: d.severity || 'MEDIUM',
+    status: d.status || 'OPEN',
+    assignee: d.assignee || d.reporter || 'ช่างหน้างาน',
+    reporter: d.assignee || d.reporter || 'ช่างหน้างาน',
+    photo_url: d.photo_url || d.photoUrl || d.img || '',
+    photoUrl: d.photo_url || d.photoUrl || d.img || '',
+    due_date: d.due_date || d.due || '',
+    created_at: d.created_at || d.date || ''
+  }));
+
+  let pLogs = allLogs.filter(l => l.project_id === p.id || l.project_id?.toLowerCase() === projectId);
+  if (pLogs.length === 0 && seedProj && Array.isArray(seedProj.dailyLogs) && seedProj.dailyLogs.length > 0) {
+    pLogs = seedProj.dailyLogs;
+  }
 
   // Build combined photos
   const logPhotos = pLogs.filter(l => l.photo_url).map(l => ({
@@ -449,11 +528,11 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
   // Build combined chatHistory
   const combinedChat = [...seedChat];
   for (const l of pLogs) {
-    if (!combinedChat.some(c => c.id === l.id || c.text === l.summary)) {
+    if (!combinedChat.some(c => c.id === l.id || c.text === (l.summary || l.text))) {
       combinedChat.push({
         id: l.id,
         sender: l.sender_name || 'ช่างหน้างาน (LINE)',
-        text: l.summary || '',
+        text: l.summary || l.text || '',
         time: (l.created_at || '').slice(11, 16) || '08:00',
         timestamp: l.log_date || l.created_at || '',
         photoUrl: l.photo_url || null,
@@ -464,6 +543,53 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
       });
     }
   }
+
+  // Sort combinedChat strictly in chronological order:
+  // 1. If both items have sequential message IDs (e.g. MSG-LMP-01 ... MSG-LMP-23), sort by numeric suffix.
+  // 2. Otherwise sort by actual parsed timestamp (handling Thai dates like '28 ต.ค. 2569 11:56' vs '05 พ.ย. 2569 08:08' and ISO dates).
+  const parseChatDate = (msg) => {
+    if (!msg) return 0;
+    const raw = msg.created_at || msg.timestamp || msg.date || '';
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+      const t = new Date(raw).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    const thaiMatch = String(raw).match(/(\d{1,2})\s+([^\s]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+    if (thaiMatch) {
+      const day = thaiMatch[1].padStart(2, '0');
+      const monthStr = thaiMatch[2];
+      const beYear = parseInt(thaiMatch[3], 10);
+      const ceYear = beYear > 2400 ? beYear - 543 : beYear;
+      const hour = (thaiMatch[4] || '08').padStart(2, '0');
+      const min = (thaiMatch[5] || '00').padStart(2, '0');
+      const thaiMonths = {
+        'ม.ค.': '01', 'ก.พ.': '02', 'มี.ค.': '03', 'เม.ย.': '04',
+        'พ.ค.': '05', 'มิ.ย.': '06', 'ก.ค.': '07', 'ส.ค.': '08',
+        'ก.ย.': '09', 'ต.ค.': '10', 'พ.ย.': '11', 'ธ.ค.': '12'
+      };
+      const month = thaiMonths[monthStr] || '01';
+      const isoStr = `${ceYear}-${month}-${day}T${hour}:${min}:00`;
+      const t = new Date(isoStr).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    return 0;
+  };
+
+  combinedChat.sort((a, b) => {
+    const matchA = (a.id || '').match(/MSG-[A-Z]+-(\d+)/i);
+    const matchB = (b.id || '').match(/MSG-[A-Z]+-(\d+)/i);
+    if (matchA && matchB) {
+      return parseInt(matchA[1], 10) - parseInt(matchB[1], 10);
+    }
+    const timeA = parseChatDate(a);
+    const timeB = parseChatDate(b);
+    if (timeA > 0 && timeB > 0 && timeA !== timeB) {
+      return timeA - timeB;
+    }
+    if (matchA && !matchB) return -1;
+    if (!matchA && matchB) return 1;
+    return (a.created_at || a.id || '').localeCompare(b.created_at || b.id || '');
+  });
 
   return {
     ...p,
@@ -491,6 +617,7 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
     targetCost: Number(p.target_cost) || 0,
     actual_cost: Number(p.actual_cost) || 0,
     actualCost: Number(p.actual_cost) || 0,
+    budgetSpent: Number(p.actual_cost) || 0,
     planned_progress: parseFloat(p.planned_progress || 0),
     plannedProgress: parseFloat(p.planned_progress || 0),
     actual_progress: parseFloat(p.actual_progress || 0),
@@ -505,9 +632,10 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
     contractors,
     sourceFiles,
     source_files: sourceFiles,
-    wbsTasks: pWbs,
-    actionItems: pActions,
-    defects: pDefects,
+    wbs: mappedWbs,
+    wbsTasks: mappedWbs,
+    actionItems: mappedActions,
+    defects: mappedDefects,
     dailyLogs: pLogs,
     photos: combinedPhotos,
     chatHistory: combinedChat,
@@ -522,8 +650,14 @@ export async function getAllProjects(d1, includeArchived = false) {
   const query = includeArchived
     ? 'SELECT * FROM projects ORDER BY updated_at DESC'
     : 'SELECT * FROM projects WHERE archived = 0 ORDER BY updated_at DESC';
-  const result = await d1.prepare(query).all();
-  return (result.results || []).map(p => formatProject(p));
+  const [result, wbsTasks, actionItems, defects, dailyLogs] = await Promise.all([
+    d1.prepare(query).all(),
+    getWbsTasks(d1),
+    getActionItems(d1),
+    getDefects(d1),
+    getDailyLogs(d1)
+  ]);
+  return (result.results || []).map(p => formatProject(p, wbsTasks, actionItems, defects, dailyLogs));
 }
 
 export async function getProjectById(d1, id) {
@@ -546,7 +680,16 @@ export async function getProjectById(d1, id) {
     normalized,
     id
   ).first();
-  return formatProject(p);
+  if (!p) return null;
+
+  const [wbsTasks, actionItems, defects, dailyLogs] = await Promise.all([
+    getWbsTasks(d1, p.id),
+    getActionItems(d1, p.id),
+    getDefects(d1, p.id),
+    getDailyLogs(d1, p.id)
+  ]);
+
+  return formatProject(p, wbsTasks, actionItems, defects, dailyLogs);
 }
 
 export async function getProjectByLineGroupId(d1, lineGroupId) {
