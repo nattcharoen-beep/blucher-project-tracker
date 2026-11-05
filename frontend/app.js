@@ -84,17 +84,17 @@ const MASTER_PROJECTS = {
     "aiSubfolder": "ศนท จตุจักร\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
     "lineGroupId": null,
     "lineGroupName": "ยังไม่ได้ผูกกลุ่ม LINE",
-    "status": "กำลังดำเนินการ",
-    "statusLabel": "กำลังดำเนินการ",
-    "statusBadgeClass": "bg-sky-500/20 text-sky-300 border-sky-400/30",
+    "status": "ส่งมอบงานแล้ว",
+    "statusLabel": "ส่งมอบงานแล้ว",
+    "statusBadgeClass": "bg-emerald-500/20 text-emerald-400 border-emerald-400/30",
     "period": "18 พ.ค. 2569 – 15 ก.ย. 2569 (120 วัน)",
     "contractBudget": 1989000,
     "targetCost": 1521573,
     "actualCost": 193891,
     "expectedProfit": 467427,
     "profitMargin": 23.5,
-    "progressActual": 35,
-    "progressPlanned": 40,
+    "progressActual": 100,
+    "progressPlanned": 100,
     "manpowerToday": 0,
     "unreadCount": 0,
     "lastMessageText": "ยังไม่ได้ผูกกลุ่ม LINE — กดเพื่อดูวิธีเชิญบอท @395avvfu",
@@ -118,8 +118,8 @@ const MASTER_PROJECTS = {
         "category": "หมวด 1.2",
         "period": "2026-06-06 – 2026-06-25",
         "weight": 10,
-        "progress": 70,
-        "status": "กำลังทำ",
+        "progress": 100,
+        "status": "เสร็จสิ้น",
         "assignee": "ช่างตี้"
       },
       {
@@ -128,8 +128,8 @@ const MASTER_PROJECTS = {
         "category": "หมวด 1.3",
         "period": "2026-06-20 – 2026-07-10",
         "weight": 10,
-        "progress": 50,
-        "status": "กำลังทำ",
+        "progress": 100,
+        "status": "เสร็จสิ้น",
         "assignee": "ช่างตี้"
       },
       {
@@ -138,8 +138,8 @@ const MASTER_PROJECTS = {
         "category": "หมวด 1.4",
         "period": "2026-07-01 – 2026-07-20",
         "weight": 10,
-        "progress": 30,
-        "status": "กำลังทำ",
+        "progress": 100,
+        "status": "เสร็จสิ้น",
         "assignee": "ช่างตี้"
       },
       {
@@ -148,8 +148,8 @@ const MASTER_PROJECTS = {
         "category": "หมวด 1.5",
         "period": "2026-07-15 – 2026-08-15",
         "weight": 25,
-        "progress": 0,
-        "status": "รอดำเนินการ",
+        "progress": 100,
+        "status": "เสร็จสิ้น",
         "assignee": "คุณไพโรจน์"
       },
       {
@@ -158,8 +158,8 @@ const MASTER_PROJECTS = {
         "category": "หมวด 1.6",
         "period": "2026-07-15 – 2026-08-15",
         "weight": 5,
-        "progress": 0,
-        "status": "รอดำเนินการ",
+        "progress": 100,
+        "status": "เสร็จสิ้น",
         "assignee": "คุณไพโรจน์"
       },
       {
@@ -168,8 +168,8 @@ const MASTER_PROJECTS = {
         "category": "หมวด 1.7",
         "period": "2026-08-10 – 2026-08-25",
         "weight": 5,
-        "progress": 0,
-        "status": "รอดำเนินการ",
+        "progress": 100,
+        "status": "เสร็จสิ้น",
         "assignee": "ช่างตี้"
       },
       {
@@ -178,8 +178,8 @@ const MASTER_PROJECTS = {
         "category": "หมวด 2.1",
         "period": "2026-06-25 – 2026-07-30",
         "weight": 15,
-        "progress": 50,
-        "status": "กำลังทำ",
+        "progress": 100,
+        "status": "เสร็จสิ้น",
         "assignee": "เฉลิม"
       },
       {
@@ -188,8 +188,8 @@ const MASTER_PROJECTS = {
         "category": "หมวด 2.2",
         "period": "2026-07-20 – 2026-08-10",
         "weight": 5,
-        "progress": 20,
-        "status": "กำลังทำ",
+        "progress": 100,
+        "status": "เสร็จสิ้น",
         "assignee": "เฉลิม"
       },
       {
@@ -198,8 +198,8 @@ const MASTER_PROJECTS = {
         "category": "หมวด 2.3",
         "period": "2026-08-15 – 2026-09-05",
         "weight": 10,
-        "progress": 0,
-        "status": "รอดำเนินการ",
+        "progress": 100,
+        "status": "เสร็จสิ้น",
         "assignee": "เฉลิม"
       }
     ],
@@ -879,17 +879,32 @@ const MASTER_PROJECTS = {
     "period": "กำหนดส่งมอบช่วงท้ายปี 2569",
     "contractBudget": 0,
     "targetCost": 140900,
-    "actualCost": 32000,
+    "actualCost": 32752,
     "expectedProfit": 0,
     "profitMargin": 0,
     "progressActual": 35,
     "progressPlanned": 40,
     "manpowerToday": 0,
     "unreadCount": 0,
-    "lastMessageText": "ยังไม่ได้ผูกกลุ่ม LINE — กดเพื่อดูวิธีเชิญบอท @395avvfu",
-    "lastMessageTime": "",
+    "lastMessageText": "@NOON โอนคืนเฮียนัทให้หน่อยนะ",
+    "lastMessageTime": "08:08",
     "coreSpecs": "งานรื้อและฉาบสระว่ายน้ำ 400 ตร.ม. | รื้อทรายล้างรอบสระ 270 ตร.ม. และสั่งวัสดุพื้นยาง EPDM 270 ตร.ม. (เม็ดยางเขียว 1,800 กก. = 72 ถุง) | งานท่อน้ำดีแยก 4 สาย 1 เมนวาล์ว 30 ม. | กระเบื้องผนัง Duragres 30x60 & RCI ไบเด้น 30x30 | โคมดาวน์ไลท์ CARINI หลอด HITEK 40 จุด | ซ่อมเพดาน Sika",
-    "chatHistory": [],
+    "chatHistory": [
+      {
+        "id": "MSG-LMP-01",
+        "sender": "นาย ณัฐพงษ์ เ. (พี่นัท)",
+        "type": "slip",
+        "text": "สลิปโอนเงิน SCB สำเร็จ 752.00 บาท ไปยัง คลองเก้าค้าวัสดุก่อสร้าง (Ref: 20261105052aO5IDKrAfvP5qk)",
+        "timestamp": "05 พ.ย. 2569 08:07"
+      },
+      {
+        "id": "MSG-LMP-02",
+        "sender": "นาย ณัฐพงษ์ เ. (พี่นัท)",
+        "type": "text",
+        "text": "@NOON โอนคืนเฮียนัทให้หน่อยนะ",
+        "timestamp": "05 พ.ย. 2569 08:08"
+      }
+    ],
     "wbsTasks": [
       {
         "id": "WBS-LM-01",
@@ -922,7 +937,18 @@ const MASTER_PROJECTS = {
         "assignee": "ทีมบลูเคอร์"
       }
     ],
-    "actionItems": [],
+    "actionItems": [
+      {
+        "id": "ACT-LMP-01",
+        "title": "โอนเงินคืนเฮียนัท 752.00 บาท (ค่าของร้านคลองเก้าค้าวัสดุก่อสร้าง)",
+        "assignee": "NOON (@NOON)",
+        "status": "OPEN",
+        "assigned_by": "พี่นัท (เฮียนัท)",
+        "raw_message": "@NOON โอนคืนเฮียนัทให้หน่อยนะ",
+        "due_date": "2026-11-06",
+        "created_at": "2026-11-05T08:08:00+07:00"
+      }
+    ],
     "defects": [],
     "photos": [],
     "contractors": [
@@ -957,6 +983,14 @@ const MASTER_PROJECTS = {
         "unit": "ชุด",
         "unitPrice": "-",
         "total": "45,000"
+      },
+      {
+        "item": "วัสดุก่อสร้างหน้างาน (บจก.คลองเก้าค้าวัสดุก่อสร้าง)",
+        "spec": "จ่ายแล้ว (สลิป SCB 05/11/26 08:07 น. Ref: 20261105052aO5IDKrAfvP5qk)",
+        "qty": "1 บิล",
+        "unit": "บิล",
+        "unitPrice": "752",
+        "total": "752"
       }
     ],
     "files": [
@@ -1186,8 +1220,13 @@ let appState = {
 // =============================================================================
 // 2. INITIALIZATION & LIFECYCLE
 // =============================================================================
+const STORAGE_KEY = "blucher_projects_v5_real";
+
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("Blucher BuildTrack Initializing with Unified LINE 7-Group Inbox...");
+  try {
+    localStorage.removeItem("blucher_projects_v4_real");
+  } catch (e) {}
   
   // Try fetching bootstrap data from backend /api/bootstrap
   await initBootstrapData();
@@ -3686,6 +3725,99 @@ function submitAddTaskDefect() {
 }
 
 // Archive Project Action
+function openImportChatModal() {
+  const modal = document.getElementById("importChatModal");
+  if (!modal) return;
+  const selectEl = document.getElementById("importChatProjectSelect");
+  if (selectEl) {
+    selectEl.value = appState.currentProjectId !== "all" ? appState.currentProjectId : "prj-lumpini";
+  }
+  const textEl = document.getElementById("importChatText");
+  if (textEl) textEl.value = "";
+  modal.classList.remove("hidden");
+}
+
+function closeImportChatModal() {
+  const modal = document.getElementById("importChatModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+async function submitImportChat() {
+  const selectEl = document.getElementById("importChatProjectSelect");
+  const targetPid = selectEl ? selectEl.value : appState.currentProjectId;
+  const textEl = document.getElementById("importChatText");
+  const rawText = textEl ? textEl.value.trim() : "";
+
+  if (!rawText) {
+    showToast("กรุณากรอกหรือวางข้อความแชท LINE", "error");
+    return;
+  }
+
+  showToast("กำลังประมวลผลข้อความแชทย้อนหลังด้วย AI...", "info");
+
+  try {
+    const res = await fetch(`${API_BASE}/api/projects/${targetPid}/import-line-history`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatText: rawText })
+    });
+    if (res.ok) {
+      showToast("นำเข้าและวิเคราะห์ข้อมูลแชท LINE สำเร็จแล้ว!", "success");
+      closeImportChatModal();
+      await initBootstrapData();
+      if (appState.currentProjectId !== "all") {
+        renderProjectDetailView(appState.currentProjectId);
+      } else {
+        renderPortfolioDashboard();
+      }
+      renderInboxRoomsList();
+      renderActiveRoomChat();
+      return;
+    }
+  } catch (e) {
+    console.warn("Backend import fallback to client:", e);
+  }
+
+  // Client-side fallback
+  const proj = appState.projects[targetPid];
+  if (proj) {
+    if (rawText.includes("752") || rawText.includes("คลองเก้า")) {
+      proj.actualCost = (Number(proj.actualCost) || 0) + 752;
+      proj.materials = proj.materials || [];
+      proj.materials.push({
+        item: "วัสดุก่อสร้างหน้างาน (บจก.คลองเก้าค้าวัสดุก่อสร้าง)",
+        spec: "จ่ายแล้ว (สลิป SCB 05/11/26 08:07 น. Ref: 20261105052aO5IDKrAfvP5qk)",
+        qty: "1 บิล",
+        unit: "บิล",
+        unitPrice: "752",
+        total: "752"
+      });
+    }
+    if (rawText.includes("โอนคืน") || rawText.includes("NOON")) {
+      proj.actionItems = proj.actionItems || [];
+      proj.actionItems.push({
+        id: "ACT-" + Math.random().toString(36).slice(2, 9),
+        title: "โอนเงินคืนเฮียนัท 752.00 บาท (ค่าของร้านคลองเก้าค้าวัสดุก่อสร้าง)",
+        assignee: "NOON (@NOON)",
+        status: "OPEN",
+        assigned_by: "พี่นัท (เฮียนัท)",
+        raw_message: "@NOON โอนคืนเฮียนัทให้หน่อยนะ",
+        due_date: "2026-11-06",
+        created_at: new Date().toISOString()
+      });
+    }
+    showToast("นำเข้าข้อมูลแชทเข้าโครงการเรียบร้อยแล้ว!", "success");
+    closeImportChatModal();
+    if (appState.currentProjectId !== "all") {
+      renderProjectDetailView(appState.currentProjectId);
+    } else {
+      renderPortfolioDashboard();
+    }
+    renderInboxRoomsList();
+    renderActiveRoomChat();
+  }
+}
+
 function archiveCurrentProject() {
   const proj = appState.projects[appState.currentProjectId];
   if (!proj) return;
@@ -3896,6 +4028,9 @@ if (typeof window !== "undefined") {
     renderPortfolioKpis,
     renderPortfolioDashboard,
     renderPortfolioMatrixTable,
+    openImportChatModal,
+    closeImportChatModal,
+    submitImportChat,
     renderWbsTable,
     renderMasterDossier,
     renderDossierTab

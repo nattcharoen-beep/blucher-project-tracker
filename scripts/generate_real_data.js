@@ -21,8 +21,8 @@ const REAL_PROJECTS = [
     lineGroupId: null,
     line_group_name: "ยังไม่ได้ผูกกลุ่ม LINE",
     lineGroupName: "ยังไม่ได้ผูกกลุ่ม LINE",
-    status: "IN_PROGRESS",
-    statusLabel: "กำลังดำเนินการก่อสร้าง",
+    status: "COMPLETED",
+    statusLabel: "ส่งมอบงานแล้ว",
     period: "18 พ.ค. 2569 – 15 ก.ย. 2569 (120 วัน)",
     budget: 1989000,
     contractBudget: 1989000,
@@ -32,10 +32,10 @@ const REAL_PROJECTS = [
     actualCost: 193891,
     expectedProfit: 467427,
     profitMargin: 23.5,
-    planned_progress: 40.0,
-    plannedProgress: 40.0,
-    actual_progress: 35.0,
-    actualProgress: 35.0,
+    planned_progress: 100.0,
+    plannedProgress: 100.0,
+    actual_progress: 100.0,
+    actualProgress: 100.0,
     start_date: "2026-05-18",
     startDate: "2026-05-18",
     end_date: "2026-09-15",
@@ -65,15 +65,15 @@ const REAL_PROJECTS = [
     ],
     wbsTasks: [
       { id: "WBS-JT-01", task_code: "1.1", title: "งานสกัดรื้อ-ถอนกระเบื้องเดิม 406 ตร.ม. (รวมขนทิ้งนอกพื้นที่)", weight_percent: 5, progress_percent: 100, status: "COMPLETED", assignee: "ช่างตี้ / พัฒน์", start_date: "2026-05-18", due_date: "2026-06-05" },
-      { id: "WBS-JT-02", task_code: "1.2", title: "งานปรับพื้นผิวสระว่ายน้ำ ส่วนพื้นและผนังสระพร้อมทำความสะอาด 406 ตร.ม.", weight_percent: 10, progress_percent: 70, status: "IN_PROGRESS", assignee: "ช่างตี้", start_date: "2026-06-06", due_date: "2026-06-25" },
-      { id: "WBS-JT-03", task_code: "1.3", title: "งานฉาบซ่อมรางน้ำล้น ปรับปรุงบ่าราง และทากันซึม Polyurea 75 ม.", weight_percent: 10, progress_percent: 50, status: "IN_PROGRESS", assignee: "ช่างตี้", start_date: "2026-06-20", due_date: "2026-07-10" },
-      { id: "WBS-JT-04", task_code: "1.4", title: "งานปูขอบสระว่ายน้ำ หินธรรมชาติแกรนิตดำพ่นทราย กว้าง 27 ซม. 75 ม.", weight_percent: 10, progress_percent: 30, status: "IN_PROGRESS", assignee: "ช่างตี้", start_date: "2026-07-01", due_date: "2026-07-20" },
-      { id: "WBS-JT-05", task_code: "1.5", title: "ติดตั้งวัสดุรับน้ำสระว่ายน้ำ ไวนิลไลเนอร์ หนา 1.50 มม. เสริมใยพิเศษ 406 ตร.ม.", weight_percent: 25, progress_percent: 0, status: "PENDING", assignee: "คุณไพโรจน์", start_date: "2026-07-15", due_date: "2026-08-15" },
-      { id: "WBS-JT-06", task_code: "1.6", title: "ติดตั้งชุดวัสดุ รางยึด แถบล็อค สลักล็อคปิดราง 75 ม.", weight_percent: 5, progress_percent: 0, status: "PENDING", assignee: "คุณไพโรจน์", start_date: "2026-07-15", due_date: "2026-08-15" },
-      { id: "WBS-JT-07", task_code: "1.7", title: "ติดตั้งตะแกรงน้ำล้น (Grating) วัสดุเกรด ABS สีครีมงาช้าง 25 ซม. 75 ม.", weight_percent: 5, progress_percent: 0, status: "PENDING", assignee: "ช่างตี้", start_date: "2026-08-10", due_date: "2026-08-25" },
-      { id: "WBS-JT-08", task_code: "2.1", title: "งานปรับปรุงระบบท่อ-ข้อต่อ UPVC 13.5, วาล์วปีกผีเสื้อ 4 นิ้ว, บอลวาล์ว 1.25-3 นิ้ว", weight_percent: 15, progress_percent: 50, status: "IN_PROGRESS", assignee: "เฉลิม", start_date: "2026-06-25", due_date: "2026-07-30" },
-      { id: "WBS-JT-09", task_code: "2.2", title: "ติดตั้ง Liquid Level Sensor Unit 1.5 นิ้ว, Y-Strainer 2 นิ้ว, Check Valve", weight_percent: 5, progress_percent: 20, status: "IN_PROGRESS", assignee: "เฉลิม", start_date: "2026-07-20", due_date: "2026-08-10" },
-      { id: "WBS-JT-10", task_code: "2.3", title: "ปรับปรุงระบบไฟสระว่ายน้ำ โคมไฟใต้น้ำ E-LUMEN 25W/12V Cool White 8 ชุด & หม้อแปลง", weight_percent: 10, progress_percent: 0, status: "PENDING", assignee: "เฉลิม", start_date: "2026-08-15", due_date: "2026-09-05" }
+      { id: "WBS-JT-02", task_code: "1.2", title: "งานปรับพื้นผิวสระว่ายน้ำ ส่วนพื้นและผนังสระพร้อมทำความสะอาด 406 ตร.ม.", weight_percent: 10, progress_percent: 100, status: "COMPLETED", assignee: "ช่างตี้", start_date: "2026-06-06", due_date: "2026-06-25" },
+      { id: "WBS-JT-03", task_code: "1.3", title: "งานฉาบซ่อมรางน้ำล้น ปรับปรุงบ่าราง และทากันซึม Polyurea 75 ม.", weight_percent: 10, progress_percent: 100, status: "COMPLETED", assignee: "ช่างตี้", start_date: "2026-06-20", due_date: "2026-07-10" },
+      { id: "WBS-JT-04", task_code: "1.4", title: "งานปูขอบสระว่ายน้ำ หินธรรมชาติแกรนิตดำพ่นทราย กว้าง 27 ซม. 75 ม.", weight_percent: 10, progress_percent: 100, status: "COMPLETED", assignee: "ช่างตี้", start_date: "2026-07-01", due_date: "2026-07-20" },
+      { id: "WBS-JT-05", task_code: "1.5", title: "ติดตั้งวัสดุรับน้ำสระว่ายน้ำ ไวนิลไลเนอร์ หนา 1.50 มม. เสริมใยพิเศษ 406 ตร.ม.", weight_percent: 25, progress_percent: 100, status: "COMPLETED", assignee: "คุณไพโรจน์", start_date: "2026-07-15", due_date: "2026-08-15" },
+      { id: "WBS-JT-06", task_code: "1.6", title: "ติดตั้งชุดวัสดุ รางยึด แถบล็อค สลักล็อคปิดราง 75 ม.", weight_percent: 5, progress_percent: 100, status: "COMPLETED", assignee: "คุณไพโรจน์", start_date: "2026-07-15", due_date: "2026-08-15" },
+      { id: "WBS-JT-07", task_code: "1.7", title: "ติดตั้งตะแกรงน้ำล้น (Grating) วัสดุเกรด ABS สีครีมงาช้าง 25 ซม. 75 ม.", weight_percent: 5, progress_percent: 100, status: "COMPLETED", assignee: "ช่างตี้", start_date: "2026-08-10", due_date: "2026-08-25" },
+      { id: "WBS-JT-08", task_code: "2.1", title: "งานปรับปรุงระบบท่อ-ข้อต่อ UPVC 13.5, วาล์วปีกผีเสื้อ 4 นิ้ว, บอลวาล์ว 1.25-3 นิ้ว", weight_percent: 15, progress_percent: 100, status: "COMPLETED", assignee: "เฉลิม", start_date: "2026-06-25", due_date: "2026-07-30" },
+      { id: "WBS-JT-09", task_code: "2.2", title: "ติดตั้ง Liquid Level Sensor Unit 1.5 นิ้ว, Y-Strainer 2 นิ้ว, Check Valve", weight_percent: 5, progress_percent: 100, status: "COMPLETED", assignee: "เฉลิม", start_date: "2026-07-20", due_date: "2026-08-10" },
+      { id: "WBS-JT-10", task_code: "2.3", title: "ปรับปรุงระบบไฟสระว่ายน้ำ โคมไฟใต้น้ำ E-LUMEN 25W/12V Cool White 8 ชุด & หม้อแปลง", weight_percent: 10, progress_percent: 100, status: "COMPLETED", assignee: "เฉลิม", start_date: "2026-08-15", due_date: "2026-09-05" }
     ],
     actionItems: [],
     defects: [],
@@ -331,8 +331,8 @@ const REAL_PROJECTS = [
     contractBudget: 0,
     target_cost: 140900,
     targetCost: 140900,
-    actual_cost: 32000,
-    actualCost: 32000,
+    actual_cost: 32752,
+    actualCost: 32752,
     expectedProfit: 0,
     profitMargin: 0.0,
     planned_progress: 40.0,
@@ -356,17 +356,44 @@ const REAL_PROJECTS = [
     ],
     materials: [
       { name: "เม็ดยางเขียว EPDM 270 ตร.ม.", quantity: "1,800 กก. (72 ถุง)", unit: "ถุง", cost: 144000, supplier: "คลังบลูเคอร์", status: "เตรียมจัดส่ง" },
-      { name: "กระเบื้องผนัง Duragres 30x60 & RCI 30x30", quantity: "1 ชุด", unit: "ชุด", cost: 45000, supplier: "ร้านกระเบื้อง", status: "สั่งซื้อแล้ว" }
+      { name: "กระเบื้องผนัง Duragres 30x60 & RCI 30x30", quantity: "1 ชุด", unit: "ชุด", cost: 45000, supplier: "ร้านกระเบื้อง", status: "สั่งซื้อแล้ว" },
+      { name: "วัสดุก่อสร้างหน้างาน (บจก.คลองเก้าค้าวัสดุก่อสร้าง)", quantity: "1 บิล", unit: "บิล", cost: 752, supplier: "บจก. คลองเก้าค้าวัสดุก่อสร้าง", status: "จ่ายแล้ว (สลิป SCB 05/11/26 08:07 น. Ref: 20261105052aO5IDKrAfvP5qk)" }
     ],
     wbsTasks: [
       { id: "WBS-LM-01", task_code: "1.1", title: "งานสกัดรื้อกระเบื้องสระ 400 ตร.ม. และรื้อทรายล้าง 270 ตร.ม. พร้อมขนขยะ", weight_percent: 30, progress_percent: 70, status: "IN_PROGRESS", assignee: "ช่างตี้ / พัฒน์", start_date: "2026-08-01", due_date: "2026-09-30" },
       { id: "WBS-LM-02", task_code: "1.2", title: "งานเดินท่อน้ำดีแยก 4 สาย เมนวาล์ว 30 ม. และซ่อมเพดาน Sika", weight_percent: 30, progress_percent: 30, status: "IN_PROGRESS", assignee: "ช่างระบบ", start_date: "2026-09-15", due_date: "2026-10-31" },
       { id: "WBS-LM-03", task_code: "1.3", title: "งานปูพื้นยางสังเคราะห์ EPDM ทางเดิน 270 ตร.ม. และติดตั้งโคมดาวน์ไลท์", weight_percent: 40, progress_percent: 0, status: "PENDING", assignee: "ทีมบลูเคอร์", start_date: "2026-11-01", due_date: "2026-12-20" }
     ],
-    actionItems: [],
+    actionItems: [
+      {
+        id: "ACT-LMP-01",
+        title: "โอนเงินคืนเฮียนัท 752.00 บาท (ค่าของร้านคลองเก้าค้าวัสดุก่อสร้าง)",
+        assignee: "NOON (@NOON)",
+        status: "OPEN",
+        assigned_by: "พี่นัท (เฮียนัท)",
+        raw_message: "@NOON โอนคืนเฮียนัทให้หน่อยนะ",
+        due_date: "2026-11-06",
+        created_at: "2026-11-05T08:08:00+07:00"
+      }
+    ],
     defects: [],
     dailyLogs: [],
-    chatHistory: [],
+    chatHistory: [
+      {
+        id: "MSG-LMP-01",
+        sender: "นาย ณัฐพงษ์ เ. (พี่นัท)",
+        type: "slip",
+        text: "สลิปโอนเงิน SCB สำเร็จ 752.00 บาท ไปยัง คลองเก้าค้าวัสดุก่อสร้าง (Ref: 20261105052aO5IDKrAfvP5qk)",
+        timestamp: "05 พ.ย. 2569 08:07"
+      },
+      {
+        id: "MSG-LMP-02",
+        sender: "นาย ณัฐพงษ์ เ. (พี่นัท)",
+        type: "text",
+        text: "@NOON โอนคืนเฮียนัทให้หน่อยนะ",
+        timestamp: "05 พ.ย. 2569 08:08"
+      }
+    ],
     photos: [],
     sourceFiles: [
       "cost ศนท ลุมพินี.xlsx",

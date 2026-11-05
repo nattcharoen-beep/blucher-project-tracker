@@ -242,17 +242,58 @@ export async function processSingleLineEvent(event, env) {
   const replyToken = event.replyToken || null;
 
   // --- EVENT: JOIN (Bot invited to a group) ---
-  if (eventType === 'join') {
+  if (eventType === 'join' || eventType === 'memberJoined') {
     if (groupId) {
-      await addUnassignedGroup(d1, groupId, 'กลุ่มไลน์ใหม่ที่เพิ่งเชิญบอท');
-      if (replyToken) {
-        const welcomeText =
-          `🤖 สวัสดีครับ! ผมคือ "อับดุล" AI ผู้ช่วยติดตามโครงการบลูเคอร์\n\n` +
-          `📌 พร้อมบันทึกความคืบหน้า รายงานช่าง ตรวจจับ Defect และสรุปงานให้พี่นัทและทีมงานแล้วครับ\n\n` +
-          `👉 วิธีผูกกลุ่มนี้กับโครงการ:\n` +
-          `พิมพ์: "อับดุล ผูกกลุ่มนี้กับ [ชื่อหรือรหัสโครงการ]"\n` +
-          `หรือเลือกผูกจากหน้าเว็บ Dashboard BuildTrack ครับ`;
-        await replyLineMessage(replyToken, welcomeText, channelAccessToken);
+      let groupName = 'กลุ่มไลน์โครงการ';
+      try {
+        if (channelAccessToken) {
+          const res = await fetch(`https://api.line.me/v2/bot/group/${groupId}/summary`, {
+            headers: { Authorization: `Bearer ${channelAccessToken}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.groupName) groupName = data.groupName;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch group summary:', err);
+      }
+
+      // Automatically match groupName against the 7 projects
+      const lower = groupName.toLowerCase();
+      let matchedId = null;
+      if (lower.includes('ลุมพินี') || lower.includes('lumpini')) matchedId = 'PRJ-LUMPINI';
+      else if (lower.includes('จตุจักร') || lower.includes('chatuchak') || lower.includes('jatujak')) matchedId = 'PRJ-JATUJAK';
+      else if (lower.includes('บางนา') || lower.includes('bangna')) matchedId = 'PRJ-BANGNA';
+      else if (lower.includes('บางแค') || lower.includes('bangkae') || lower.includes('bang_khae')) matchedId = 'PRJ-BANGKAE';
+      else if (lower.includes('สะพานสูง') || lower.includes('saphansung') || lower.includes('saphan')) matchedId = 'PRJ-SAPHANSUNG';
+      else if (lower.includes('ปราจีน') || lower.includes('prachin')) matchedId = 'PRJ-PRACHIN';
+      else if (lower.includes('แม่ฮ่องสอน') || lower.includes('maehongson')) matchedId = 'PRJ-MAEHONGSON';
+
+      if (matchedId) {
+        await bindProjectLineGroup(d1, matchedId, groupId);
+        const targetProj = await getProjectById(d1, matchedId);
+        const pName = targetProj ? (targetProj.name || targetProj.short_name) : matchedId;
+        const msg = `สวัสดีครับ! บอทอับดุล (Blucher BuildTrack) เข้ากลุ่ม "${groupName}" เรียบร้อยแล้วครับ 👷‍♂️\n` +
+                    `✅ เชื่อมต่อกับโครงการ "${pName}" โดยอัตโนมัติแล้วครับ!\n\n` +
+                    `พร้อมบันทึกความคืบหน้า รายงานช่าง สั่งงาน และตรวจรับสลิป/รูปหน้างานทันทีครับ`;
+        if (replyToken) await replyLineMessage(replyToken, msg, channelAccessToken);
+        return { eventType: 'join', groupId, boundTo: matchedId, groupName, handled: true };
+      } else {
+        await addUnassignedGroup(d1, groupId, groupName);
+        if (replyToken) {
+          const welcomeText =
+            `สวัสดีครับ! บอทอับดุล (Blucher BuildTrack) เข้ากลุ่ม "${groupName}" เรียบร้อยแล้วครับ 👷‍♂️\n\n` +
+            `พิมพ์บอกผมได้เลยว่าห้องนี้คือไซต์ไหน เช่น:\n` +
+            `👉 ผูกลุมพินี\n` +
+            `👉 ผูกสะพานสูง\n` +
+            `👉 ผูกบางนา\n` +
+            `👉 ผูกบางแค\n` +
+            `👉 ผูกจตุจักร\n` +
+            `👉 ผูกปราจีน\n` +
+            `👉 ผูกแม่ฮ่องสอน`;
+          await replyLineMessage(replyToken, welcomeText, channelAccessToken);
+        }
       }
     }
     return { eventType: 'join', groupId, handled: true };
@@ -295,17 +336,18 @@ export async function processSingleLineEvent(event, env) {
     if (msgType === 'text') {
       const text = (message.text || '').trim();
 
-      // Step 1: Use W-3 AI engine command parsing if available
+      // Step 1: Use direct fast binding check or W-3 AI engine command parsing
+      const bindMatch = text.match(/(?:ผูก|เชื่อม)(?:กับ|เข้ากับ)?(?:โครงการ|กลุ่มนี้กับ|กลุ่มกับ|ไซต์)?\s*(.+)/i) ||
+                        text.match(/^(?:ผูก|เชื่อม)\s*(จตุจักร|บางนา|บางแค|สะพานสูง|ลุมพินี|ปราจีน|แม่ฮ่องสอน)/i);
       let parsedCmd = null;
-      if (ai && typeof ai.parseWakeWordAndCommand === 'function') {
+      if (bindMatch) {
+        parsedCmd = { type: 'BIND_GROUP', targetProjectName: bindMatch[1].trim() };
+      } else if (ai && typeof ai.parseWakeWordAndCommand === 'function') {
         parsedCmd = ai.parseWakeWordAndCommand(text);
       } else {
         // Fallback command parser
         const isWakeWord = /^(?:@?อับดุล|@?บอท)/i.test(text) || text.includes('อับดุล');
-        if (text.match(/ผูก(?:กลุ่มนี้กับ|กลุ่มกับ|โครงการ)?\s*(.+)/i)) {
-          const m = text.match(/ผูก(?:กลุ่มนี้กับ|กลุ่มกับ|โครงการ)?\s*(.+)/i);
-          parsedCmd = { type: 'BIND_GROUP', targetProjectName: m[1].trim() };
-        } else if (isWakeWord && /(สรุป|รายงาน)/i.test(text)) {
+        if (isWakeWord && /(สรุป|รายงาน)/i.test(text)) {
           parsedCmd = { type: 'DAILY_SUMMARY' };
         } else if (isWakeWord || !isGroup) {
           parsedCmd = { type: 'QUESTION', cleanQuestion: text };
