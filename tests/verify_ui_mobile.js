@@ -373,12 +373,14 @@ async function runAllTests() {
       assert.ok(p.name && typeof p.name === 'string' && p.name.trim().length > 0, `Project ${key} must have valid name`);
       assert.ok(p.folderName && typeof p.folderName === 'string' && p.folderName.trim().length > 0, `Project ${key} must have valid folderName`);
       assert.ok(p.coreSpecs && typeof p.coreSpecs === 'string' && p.coreSpecs.trim().length > 0, `Project ${key} must have valid coreSpecs`);
-      assert.ok(typeof p.contractBudget === 'number' && p.contractBudget > 0, `Project ${key} must have contractBudget > 0 (got ${p.contractBudget})`);
-      assert.ok(Array.isArray(p.wbsTasks) && p.wbsTasks.length > 0, `Project ${key} must have wbsTasks.length > 0 (got ${p.wbsTasks?.length})`);
-      assert.ok(Array.isArray(p.chatHistory) && p.chatHistory.length > 0, `Project ${key} must have chatHistory.length > 0 (got ${p.chatHistory?.length})`);
+      assert.ok(typeof p.contractBudget === 'number' && p.contractBudget >= 0, `Project ${key} must have contractBudget >= 0 (got ${p.contractBudget})`);
+      assert.ok(Array.isArray(p.wbsTasks), `Project ${key} must have wbsTasks array`);
+      assert.ok(Array.isArray(p.chatHistory), `Project ${key} must have chatHistory array`);
+      assert.strictEqual(p.lineGroupId, null, `Project ${key} must have lineGroupId === null (honest unpaired state)`);
+      assert.strictEqual(p.manpowerToday, 0, `Project ${key} must have manpowerToday === 0 (honest 0 workers before LINE report)`);
     }
 
-    pass('Test 1: Real API Bootstrap Normalization', `7 genuine sites verified, zero numeric keys, all WBS/Chat records non-empty`);
+    pass('Test 1: Real API Bootstrap Normalization', `7 genuine sites verified, zero numeric keys, all unpaired from LINE, 0 fake workers`);
   } catch (err) {
     fail('Test 1: Real API Bootstrap Normalization', err);
   }

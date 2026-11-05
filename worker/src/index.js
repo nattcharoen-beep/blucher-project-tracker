@@ -56,7 +56,11 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-line-signature, x-mock-test, x-api-key',
-  'Access-Control-Max-Age': '86400'
+  'Access-Control-Max-Age': '86400',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
 };
 
 function jsonResponse(data, status = 200) {
@@ -453,7 +457,7 @@ export default {
 
     } catch (err) {
       console.error('Unhandled server error:', err);
-      return jsonResponse({ error: 'Internal server error', details: err.message }, 500);
+      return jsonResponse({ error: 'Internal server error', success: false }, 500);
     }
   }
 };

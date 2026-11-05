@@ -84,6 +84,14 @@ const localD1 = createLocalD1(localDbPath);
 import worker from './worker/src/index.js';
 import { initDatabase, getProjectById, getDailyLogs } from './worker/src/db.js';
 
+// Standard Cloudflare Security Headers
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+};
+
 // Environment object matching Cloudflare Worker bindings
 const workerEnv = {
   DB: localD1,
@@ -136,7 +144,8 @@ async function handleScanDesktopFolders(req, res) {
 
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
+      ...SECURITY_HEADERS
     });
     return res.end(JSON.stringify({
       success: true,
@@ -145,8 +154,13 @@ async function handleScanDesktopFolders(req, res) {
       folders
     }));
   } catch (err) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ success: false, error: err.message }));
+    console.error('Scan desktop error:', err);
+    res.writeHead(500, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      ...SECURITY_HEADERS
+    });
+    return res.end(JSON.stringify({ success: false, error: 'Internal folder scan error' }));
   }
 }
 
@@ -222,7 +236,8 @@ async function handleSyncToDesktop(body, res) {
 
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
+      ...SECURITY_HEADERS
     });
     return res.end(JSON.stringify({
       success: true,
@@ -232,8 +247,13 @@ async function handleSyncToDesktop(body, res) {
       filesGenerated: ['_Site_Progress_Auto.json', '_Site_Progress_Auto.md']
     }));
   } catch (err) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ success: false, error: err.message }));
+    console.error('Sync error:', err);
+    res.writeHead(500, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      ...SECURITY_HEADERS
+    });
+    return res.end(JSON.stringify({ success: false, error: 'Internal sync error' }));
   }
 }
 
@@ -261,7 +281,8 @@ const server = http.createServer(async (req, res) => {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-line-signature, x-mock-test, x-api-key',
-      'Access-Control-Max-Age': '86400'
+      'Access-Control-Max-Age': '86400',
+      ...SECURITY_HEADERS
     });
     return res.end();
   }
@@ -314,8 +335,12 @@ const server = http.createServer(async (req, res) => {
       return res.end(Buffer.from(resBuffer));
     } catch (err) {
       console.error('API Error:', err);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ error: 'Local server API error', details: err.message }));
+      res.writeHead(500, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin': '*',
+        ...SECURITY_HEADERS
+      });
+      return res.end(JSON.stringify({ error: 'Local server API error', success: false }));
     }
   }
 
@@ -351,13 +376,18 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(200, {
       'Content-Type': contentType,
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
+      ...SECURITY_HEADERS
     });
     return fs.createReadStream(filePath).pipe(res);
   }
 
   // 404 for Static
-  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.writeHead(404, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    ...SECURITY_HEADERS
+  });
   return res.end('404 Not Found - BuildTrack Project Tracker');
 });
 

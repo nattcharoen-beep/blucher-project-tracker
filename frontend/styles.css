@@ -197,6 +197,15 @@ input[type="range"] {
     word-break: break-word;
   }
 
+  /* Anti-overlap: ensure buttons with .whitespace-nowrap never wrap vertically */
+  .whitespace-nowrap,
+  button.whitespace-nowrap,
+  .btn-nowrap {
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+  }
+
   /* Touch-friendly interactive targets (Apple HIG 44px / Material 48px baseline) */
   button, select, input[type="text"], input[type="number"], textarea {
     min-height: 40px;

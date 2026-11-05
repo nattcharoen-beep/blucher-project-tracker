@@ -11,740 +11,1159 @@ const API_BASE = (typeof window !== 'undefined' && (window.location.hostname ===
   : 'https://blucher-project-tracker.natt-charoen.workers.dev';
 
 // =============================================================================
+// CANONICAL SHORT NAMES, STATUS NORMALIZERS & SECURITY HELPERS
+// =============================================================================
+const CANONICAL_SHORT_NAMES = {
+  "prj-chatuchak": "ศนท จตุจักร",
+  "prj-bangna": "ศนท บางนา",
+  "prj-bangkae": "ศนท บางแค",
+  "prj-saphansung": "ศนท สะพานสูง",
+  "prj-lumpini": "ศนท ลุมพินี",
+  "prj-prachin": "อบต ปราจีน",
+  "prj-maehongson": "พี่บอม แม่ฮ่องสอน"
+};
+
+function translateBackendStatus(status, statusLabel) {
+  if (statusLabel && typeof statusLabel === "string" && statusLabel.trim()) return statusLabel.trim();
+  if (!status || typeof status !== "string") return status;
+  const s = status.trim().toUpperCase();
+  if (s === "COMPLETED" || s === "DONE" || s === "ส่งมอบงานแล้ว") return "ส่งมอบงานแล้ว";
+  if (s === "IN_PROGRESS" || s === "ACTIVE" || s === "กำลังดำเนินการ" || s === "กำลังดำเนินการก่อสร้าง") return "กำลังดำเนินการ";
+  if (s === "SIGNED_PENDING" || s === "เซ็นสัญญาแล้ว (ยังไม่เข้างาน)") return "เซ็นสัญญาแล้ว (ยังไม่เข้างาน)";
+  if (s === "SPECIFYING" || s === "วางสเปกอยู่ (ยังไม่เซ็นสัญญา)") return "วางสเปกอยู่ (ยังไม่เซ็นสัญญา)";
+  if (s === "PLANNING" || s === "เตรียมงาน/วางแผน") return "เตรียมงาน/วางแผน";
+  if (s === "ARCHIVED") return "คลัง Archive";
+  return status;
+}
+
+function getStatusBadgeClass(status) {
+  if (!status) return "bg-slate-100 text-slate-700 border-slate-200";
+  const s = String(status).trim();
+  if (s === "ส่งมอบงานแล้ว" || s === "ส่งมอบงวดสุดท้าย" || s.toUpperCase() === "COMPLETED" || s.toUpperCase() === "DONE") {
+    return "bg-emerald-500/20 text-emerald-400 border-emerald-400/30";
+  }
+  if (s === "กำลังดำเนินการก่อสร้าง" || s === "กำลังดำเนินการ" || s.toUpperCase() === "ACTIVE" || s.toUpperCase() === "IN_PROGRESS") {
+    return "bg-sky-500/20 text-sky-300 border-sky-400/30";
+  }
+  if (s === "เซ็นสัญญาแล้ว (ยังไม่เข้างาน)" || s.toUpperCase() === "SIGNED_PENDING") {
+    return "bg-amber-500/20 text-amber-300 border-amber-400/30";
+  }
+  if (s === "วางสเปกอยู่ (ยังไม่เซ็นสัญญา)" || s.toUpperCase() === "SPECIFYING") {
+    return "bg-purple-500/20 text-purple-300 border-purple-400/30";
+  }
+  if (s === "เตรียมงาน/วางแผน" || s.toUpperCase() === "PLANNING") {
+    return "bg-slate-500/20 text-slate-300 border-slate-400/30";
+  }
+  if (s === "คลัง Archive" || s.toUpperCase() === "ARCHIVED") {
+    return "bg-slate-500/20 text-slate-300 border-slate-400/30";
+  }
+  return "bg-slate-100 text-slate-700 border-slate-200";
+}
+
+function escapeHtml(text) {
+  if (text === null || text === undefined) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// =============================================================================
 // 1. MASTER REAL REFERENCE DATASET (7 SITES EXTRACTED FROM DESKTOP WORKBOOKS)
 // =============================================================================
 const MASTER_PROJECTS = {
   "prj-chatuchak": {
-    id: "prj-chatuchak",
-    name: "ศนท จตุจักร",
-    fullName: "ศูนย์นันทนาการจตุจักร (สระว่ายน้ำ & กันซึม Polyurea)",
-    folderName: "ศนท จตุจักร",
-    folderPath: "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท จตุจักร",
-    aiSubfolder: "ศนท จตุจักร\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
-    lineGroupId: "c_chatuchak_line_grp",
-    lineGroupName: "บลูเคอร์ - ศนท. จตุจักร",
-    status: "ระยะส่งมอบงาน",
-    statusBadgeClass: "bg-amber-500/20 text-amber-300 border-amber-400/30",
-    period: "18 พ.ค. 2569 – 15 ก.ย. 2569 (120 วัน)",
-    contractBudget: 4800000,
-    targetCost: 3280000,
-    actualCost: 3120000,
-    expectedProfit: 1520000,
-    profitMargin: 31.7,
-    progressActual: 96.0,
-    progressPlanned: 100.0,
-    manpowerToday: 6,
-    unreadCount: 2,
-    lastMessageText: "โฟร์แมนวัฒน์: งานปูขอบสระหินแกรนิตดำและติดตะแกรง ABS ได้ 96% แล้วครับ",
-    lastMessageTime: "15:30",
-    coreSpecs: "Polyurea + ไวนิลไลเนอร์ 1.5mm + หินแกรนิตดำพ่นทราย",
-    chatHistory: [
-      { sender: "พี่นัท", role: "admin", text: "ช่างตี้ หินแกรนิตขอบสระฝั่งตะวันออกมีรอยบิ่น 2 จุด เข้าไปเจียรเก็บเหลี่ยมให้เนียนก่อนบ่ายสองนะ", time: "11:20", isBoss: true },
-      { sender: "ช่างตี้ (วุฒิธินันต์)", role: "worker", text: "รับทราบครับพี่นัท พรุ่งนี้เช้าผมเอาเครื่องเจียรเข้าลบมุมให้เรียบเนียนตามสเปกครับ", time: "11:25" },
-      { sender: "คุณพัฒน์", role: "worker", text: "พี่นัทครับ วันนี้รถขนขยะรอบสุดท้ายเข้า 5 โมงเย็น จะเคลียร์เศษปูนหลังห้องเครื่องออกให้หมดครับ", time: "13:10" },
-      { 
-        sender: "โฟร์แมนวัฒน์", 
-        role: "foreman", 
-        text: "รายงานหน้างานจตุจักรครับ วันนี้ช่าง 6 นาย ปูขอบสระหินแกรนิตดำพ่นทรายและติดตะแกรง Grating ABS ได้ 96% แล้วครับ", 
-        time: "15:30",
-        photoUrl: "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80",
-        photoCaption: "IMG_20261104_153022_Chatuchak.jpg",
-        savedRelPath: "ศนท จตุจักร\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\2026-11\\IMG_20261104_153022_Chatuchak.jpg"
+    "id": "prj-chatuchak",
+    "name": "ศนท จตุจักร",
+    "shortName": "ศนท จตุจักร",
+    "fullName": "งานปรับปรุงศูนย์นันทนาการจตุจักร กรุงเทพมหานคร (แบบเลขที่ สวท.741/1-2)",
+    "folderName": "ศนท จตุจักร",
+    "folderPath": "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท จตุจักร",
+    "aiSubfolder": "ศนท จตุจักร\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
+    "lineGroupId": null,
+    "lineGroupName": "ยังไม่ได้ผูกกลุ่ม LINE",
+    "status": "กำลังดำเนินการ",
+    "statusLabel": "กำลังดำเนินการ",
+    "statusBadgeClass": "bg-sky-500/20 text-sky-300 border-sky-400/30",
+    "period": "18 พ.ค. 2569 – 15 ก.ย. 2569 (120 วัน)",
+    "contractBudget": 1989000,
+    "targetCost": 1521573,
+    "actualCost": 193891,
+    "expectedProfit": 467427,
+    "profitMargin": 23.5,
+    "progressActual": 35,
+    "progressPlanned": 40,
+    "manpowerToday": 0,
+    "unreadCount": 0,
+    "lastMessageText": "ยังไม่ได้ผูกกลุ่ม LINE — กดเพื่อดูวิธีเชิญบอท @395avvfu",
+    "lastMessageTime": "",
+    "coreSpecs": "ปรับปรุงสระว่ายน้ำ 406 ตร.ม. | ปูไวนิลไลเนอร์หนา 1.50 มม. เสริมใยพิเศษ (898,072 บ.) | ชุดรางยึดและแถบล็อค 75 ม. (48,750 บ.) | ขอบสระหินแกรนิตดำพ่นทรายกว้าง 27 ซม. 75 ม. (80,400 บ.) | ตะแกรงน้ำล้น ABS 25 ซม. 75 ม. (48,750 บ.) | ฉาบซ่อมรางน้ำล้นพร้อมทากันซึม Polyurea 75 ม. (112,500 บ.) | ระบบท่อ-วาล์ว UPVC (236,500.83 บ.) และโคมไฟใต้น้ำ E-LUMEN 25W 8 ชุด (60,000 บ.)",
+    "chatHistory": [],
+    "wbsTasks": [
+      {
+        "id": "WBS-JT-01",
+        "name": "งานสกัดรื้อ-ถอนกระเบื้องเดิม 406 ตร.ม. (รวมขนทิ้งนอกพื้นที่)",
+        "category": "หมวด 1.1",
+        "period": "2026-05-18 – 2026-06-05",
+        "weight": 5,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "ช่างตี้ / พัฒน์"
       },
-      { 
-        sender: "อับดุล AI", 
-        role: "bot", 
-        text: "🤖 บันทึกภาพลงคอมพิวเตอร์ถาวรที่ `ศนท จตุจักร\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\` และอัปเดตความคืบหน้า 96% ลงใน `_Site_Progress_Auto.xlsx` เรียบร้อยครับ", 
-        time: "15:31",
-        isBot: true 
+      {
+        "id": "WBS-JT-02",
+        "name": "งานปรับพื้นผิวสระว่ายน้ำ ส่วนพื้นและผนังสระพร้อมทำความสะอาด 406 ตร.ม.",
+        "category": "หมวด 1.2",
+        "period": "2026-06-06 – 2026-06-25",
+        "weight": 10,
+        "progress": 70,
+        "status": "กำลังทำ",
+        "assignee": "ช่างตี้"
+      },
+      {
+        "id": "WBS-JT-03",
+        "name": "งานฉาบซ่อมรางน้ำล้น ปรับปรุงบ่าราง และทากันซึม Polyurea 75 ม.",
+        "category": "หมวด 1.3",
+        "period": "2026-06-20 – 2026-07-10",
+        "weight": 10,
+        "progress": 50,
+        "status": "กำลังทำ",
+        "assignee": "ช่างตี้"
+      },
+      {
+        "id": "WBS-JT-04",
+        "name": "งานปูขอบสระว่ายน้ำ หินธรรมชาติแกรนิตดำพ่นทราย กว้าง 27 ซม. 75 ม.",
+        "category": "หมวด 1.4",
+        "period": "2026-07-01 – 2026-07-20",
+        "weight": 10,
+        "progress": 30,
+        "status": "กำลังทำ",
+        "assignee": "ช่างตี้"
+      },
+      {
+        "id": "WBS-JT-05",
+        "name": "ติดตั้งวัสดุรับน้ำสระว่ายน้ำ ไวนิลไลเนอร์ หนา 1.50 มม. เสริมใยพิเศษ 406 ตร.ม.",
+        "category": "หมวด 1.5",
+        "period": "2026-07-15 – 2026-08-15",
+        "weight": 25,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "คุณไพโรจน์"
+      },
+      {
+        "id": "WBS-JT-06",
+        "name": "ติดตั้งชุดวัสดุ รางยึด แถบล็อค สลักล็อคปิดราง 75 ม.",
+        "category": "หมวด 1.6",
+        "period": "2026-07-15 – 2026-08-15",
+        "weight": 5,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "คุณไพโรจน์"
+      },
+      {
+        "id": "WBS-JT-07",
+        "name": "ติดตั้งตะแกรงน้ำล้น (Grating) วัสดุเกรด ABS สีครีมงาช้าง 25 ซม. 75 ม.",
+        "category": "หมวด 1.7",
+        "period": "2026-08-10 – 2026-08-25",
+        "weight": 5,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "ช่างตี้"
+      },
+      {
+        "id": "WBS-JT-08",
+        "name": "งานปรับปรุงระบบท่อ-ข้อต่อ UPVC 13.5, วาล์วปีกผีเสื้อ 4 นิ้ว, บอลวาล์ว 1.25-3 นิ้ว",
+        "category": "หมวด 2.1",
+        "period": "2026-06-25 – 2026-07-30",
+        "weight": 15,
+        "progress": 50,
+        "status": "กำลังทำ",
+        "assignee": "เฉลิม"
+      },
+      {
+        "id": "WBS-JT-09",
+        "name": "ติดตั้ง Liquid Level Sensor Unit 1.5 นิ้ว, Y-Strainer 2 นิ้ว, Check Valve",
+        "category": "หมวด 2.2",
+        "period": "2026-07-20 – 2026-08-10",
+        "weight": 5,
+        "progress": 20,
+        "status": "กำลังทำ",
+        "assignee": "เฉลิม"
+      },
+      {
+        "id": "WBS-JT-10",
+        "name": "ปรับปรุงระบบไฟสระว่ายน้ำ โคมไฟใต้น้ำ E-LUMEN 25W/12V Cool White 8 ชุด & หม้อแปลง",
+        "category": "หมวด 2.3",
+        "period": "2026-08-15 – 2026-09-05",
+        "weight": 10,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "เฉลิม"
       }
     ],
-    wbsTasks: [
-      { id: "w-c1", name: "1. งานสกัดรื้อ-ถอนกระเบื้องเดิม (รวมขนทิ้งนอกพื้นที่)", category: "เตรียมพื้นผิว", period: "18 พ.ค. - 30 พ.ค.", weight: 15, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-c2", name: "2. งานปรับพื้นผิวสระว่ายน้ำ ส่วนพื้นและผนังสระพร้อมทำความสะอาด", category: "เตรียมพื้นผิว", period: "1 มิ.ย. - 15 มิ.ย.", weight: 15, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-c3", name: "3. งานพ่นระบบกันซึม Polyurea TDS รอบบ่ารางน้ำล้นและรอยต่อ", category: "งานกันซึม", period: "16 มิ.ย. - 30 มิ.ย.", weight: 20, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-c4", name: "4. ติดตั้งวัสดุรับน้ำไวนิลไลเนอร์ หนา 1.50 มม. เสริมใยพิเศษพร้อมรางยึด", category: "ติดตั้งวัสดุสระ", period: "1 ก.ค. - 31 ก.ค.", weight: 25, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-c5", name: "5. งานปูขอบสระว่ายน้ำ หินธรรมชาติแกรนิตดำพ่นทราย กว้าง 27 ซม.", category: "งานขอบสระ", period: "1 ส.ค. - 20 ส.ค.", weight: 10, progress: 95, status: "เก็บงาน" },
-      { id: "w-c6", name: "6. ติดตั้งตะแกรงน้ำล้น Grating ABS สีครีมงาช้าง ขนาด 25 ซม.", category: "งานระบายน้ำ", period: "21 ส.ค. - 5 ก.ย.", weight: 5, progress: 90, status: "เก็บงาน" },
-      { id: "w-c7", name: "7. จัดทำหนังสือส่งมอบงานพร้อมภาพถ่ายสอบทาน ปร.4 เสนอเซ็น", category: "เอกสารส่งมอบ", period: "6 ก.ย. - 15 ก.ย.", weight: 10, progress: 80, status: "ตรวจรับ" }
-    ],
-    actionItems: [
+    "actionItems": [],
+    "defects": [],
+    "photos": [],
+    "contractors": [
       {
-        id: "act-c1",
-        assignee: "ช่างตี้ (วุฒิธินันต์)",
-        title: "เก็บงานเจียรขอบหินแกรนิตดำพ่นทรายฝั่งทิศตะวันออก",
-        quote: "ช่างตี้ หินแกรนิตขอบสระฝั่งตะวันออกมีรอยบิ่น 2 จุด เข้าไปเจียรเก็บเหลี่ยมให้เนียนก่อนบ่ายสองนะ",
-        orderedBy: "พี่นัท",
-        deadline: "พรุ่งนี้ 14:00",
-        timestamp: "เมื่อวานนี้ 16:40",
-        priority: "ด่วนมาก",
-        completed: false
+        "name": "ช่างตี้ (วุฒิธินันต์ สมชอบ)",
+        "role": "งานรื้อ+ฉาบสระว่ายน้ำ 400 ตร.ม. @ 300 บ.",
+        "contact": "กสิกร 0258369939",
+        "milestones": "งวด 1: 40,000 บ. / งวด 2: 20,000 บ.",
+        "amount": "120,000 บาท"
       },
       {
-        id: "act-c2",
-        assignee: "คุณพัฒน์",
-        title: "ขนย้ายเศษปูนและถุงขยะหลังห้องเครื่องสระว่ายน้ำ",
-        quote: "คุณพัฒน์ รถขยะรอบสุดท้ายเข้ากี่โมง เคลียร์เศษปูนหลังห้องเครื่องให้เกลี้ยงก่อนกรรมการมาตรวจ",
-        orderedBy: "พี่นัท",
-        deadline: "วันนี้ 17:00",
-        timestamp: "วันนี้ 09:15",
-        priority: "ปกติ",
-        completed: false
+        "name": "เฉลิม",
+        "role": "งานระบบสระว่ายน้ำ (แบ่งจ่าย 40% / 40% / 20%)",
+        "contact": "ทีมช่างเฉลิม",
+        "milestones": "งวด 1: 68,000 บ. (40%)",
+        "amount": "170,000 บาท"
       },
       {
-        id: "act-c3",
-        assignee: "ช่างเฉลิม",
-        title: "ทดสอบแรงดันระบบน้ำและปั๊มกรองสระว่ายน้ำ 24 ชม.",
-        quote: "ช่างเฉลิม รันปั๊มเทสระบบน้ำ 24 ชม. ส่งรูปเกจวัดแรงดันเข้ากลุ่มด้วย",
-        orderedBy: "พี่นัท",
-        deadline: "เสร็จสิ้นแล้ว",
-        timestamp: "3 วันที่แล้ว",
-        priority: "ปกติ",
-        completed: true
+        "name": "พัฒน์",
+        "role": "ขนขยะ 3 เที่ยว @ 1,000 บ.",
+        "contact": "พัฒน์บริการขนส่ง",
+        "milestones": "จ่ายครบแล้ว 3,000 บ.",
+        "amount": "3,000 บาท"
+      },
+      {
+        "name": "คุณไพโรจน์",
+        "role": "งานเชื่อมปูแผ่น PVC Liner สระว่ายน้ำ (ตามใบเสนอราคา)",
+        "contact": "ไพโรจน์ไลเนอร์",
+        "milestones": "ตามใบเสนอราคา",
+        "amount": "0 บาท"
       }
     ],
-    defects: [
+    "materials": [
       {
-        id: "df-c1",
-        title: "รอยบิ่นขอบหินแกรนิตดำพ่นทรายจุดต่อเสา",
-        location: "ขอบสระว่ายน้ำ โซน A",
-        severity: "ปานกลาง",
-        status: "in-progress",
-        reporter: "โฟร์แมนวัฒน์",
-        date: "04 พ.ย. 2569",
-        photoUrl: "https://images.unsplash.com/photo-1584467735871-8e85353a8413?auto=format&fit=crop&w=600&q=80"
+        "item": "ปูนฉาบเสือมอร์ตาร์ 50 กก. (พรวัฒนา)",
+        "spec": "ส่งแล้ว (27/06/26 & 08/07/26)",
+        "qty": "290 ลูก",
+        "unit": "ลูก",
+        "unitPrice": "-",
+        "total": "29,540"
       },
       {
-        id: "df-c2",
-        title: "สลักล็อครางไวนิลไลเนอร์มุมทิศเหนือหลวม 1 จุด",
-        location: "บ่ารางน้ำล้น ทิศเหนือ",
-        severity: "เล็กน้อย",
-        status: "pending",
-        reporter: "ช่างตี้",
-        date: "03 พ.ย. 2569",
-        photoUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80"
+        "item": "ปูนเขียวเสือ 50 กก. (พรวัฒนา)",
+        "spec": "ส่งแล้ว (27/06/26)",
+        "qty": "10 ลูก",
+        "unit": "ลูก",
+        "unitPrice": "-",
+        "total": "1,580"
       },
       {
-        id: "df-c3",
-        title: "คราบปูนเปื้อนตะแกรงน้ำล้น Grating ABS",
-        location: "รางน้ำล้นรอบสระ",
-        severity: "เล็กน้อย",
-        status: "resolved",
-        reporter: "โฟร์แมนวัฒน์",
-        date: "01 พ.ย. 2569",
-        photoUrl: "https://images.unsplash.com/photo-1541888946425-d0fbb1861564?auto=format&fit=crop&w=600&q=80"
+        "item": "ไฟใต้น้ำ LED (วินวิน)",
+        "spec": "สั่งซื้อและชำระแล้ว (31,770.94 บ.)",
+        "qty": "7 ชิ้น",
+        "unit": "ชุด",
+        "unitPrice": "-",
+        "total": "31,770.94"
+      },
+      {
+        "item": "แผ่นไวนิลไลเนอร์ PVC 1.50 มม. เสริมใยพิเศษ",
+        "spec": "นำเข้าแล้ว",
+        "qty": "406 ตร.ม.",
+        "unit": "ตร.ม.",
+        "unitPrice": "-",
+        "total": "898,072"
+      },
+      {
+        "item": "ชุดรางยึดและแถบล็อคไวนิลไลเนอร์",
+        "spec": "นำเข้าแล้ว",
+        "qty": "75 เมตร",
+        "unit": "ม.",
+        "unitPrice": "-",
+        "total": "48,750"
+      },
+      {
+        "item": "ขอบสระหินแกรนิตดำพ่นทราย 27 ซม.",
+        "spec": "สั่งซื้อแล้ว",
+        "qty": "75 เมตร",
+        "unit": "ม.",
+        "unitPrice": "-",
+        "total": "80,400"
+      },
+      {
+        "item": "ตะแกรงน้ำล้น Grating ABS สีครีม 25 ซม.",
+        "spec": "สั่งซื้อแล้ว",
+        "qty": "75 เมตร",
+        "unit": "ม.",
+        "unitPrice": "-",
+        "total": "48,750"
+      },
+      {
+        "item": "ระบบท่อ-วาล์ว UPVC สระว่ายน้ำ",
+        "spec": "อยู่ระหว่างติดตั้ง",
+        "qty": "1 ระบบ",
+        "unit": "งาน",
+        "unitPrice": "-",
+        "total": "236,500.83"
       }
     ],
-    photos: [
+    "files": [
       {
-        id: "p-c1",
-        caption: "งานปูขอบสระหินแกรนิตดำพ่นทรายและติดตั้งตะแกรงน้ำล้น ABS ใกล้แล้วเสร็จ 96%",
-        foreman: "โฟร์แมนวัฒน์",
-        timestamp: "04 พ.ย. 2569 · 15:30",
-        manpower: "ช่าง 6 นาย",
-        weather: "แดดจัด",
-        fileName: "IMG_20261104_153022_Chatuchak.jpg",
-        savedRelPath: "ศนท จตุจักร\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\2026-11\\IMG_20261104_153022_Chatuchak.jpg",
-        excelSyncStatus: "อัปเดตลง _Site_Progress_Auto.xlsx แล้ว",
-        url: "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80"
+        "name": "cost ศนท จตุจักร.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
       },
       {
-        id: "p-c2",
-        caption: "ตรวจสอบระบบพ่นกันซึม Polyurea TDS รอบบ่ารางน้ำล้นผ่านการทดสอบขังน้ำ 72 ชม.",
-        foreman: "โฟร์แมนวัฒน์",
-        timestamp: "02 พ.ย. 2569 · 11:20",
-        manpower: "ช่าง 6 นาย",
-        weather: "ครึ้มฟ้า",
-        fileName: "IMG_20261102_112000_Polyurea_Test.jpg",
-        savedRelPath: "ศนท จตุจักร\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\2026-11\\IMG_20261102_112000_Polyurea_Test.jpg",
-        excelSyncStatus: "อัปเดตลง _Site_Progress_Auto.xlsx แล้ว",
-        url: "https://images.unsplash.com/photo-1584467735871-8e85353a8413?auto=format&fit=crop&w=800&q=80"
+        "name": "Final Action_Plan_จตุจักร_18พค69_v3.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "Gant Chart ศยช จตุจักร.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "polyurea-tds.pdf",
+        "size": "เอกสารจริง",
+        "type": "PDF Document"
+      },
+      {
+        "name": "งานเพิ่มเติม ศูนย์นันทนาการจตุจักร.pdf",
+        "size": "เอกสารจริง",
+        "type": "PDF Document"
+      },
+      {
+        "name": "จตุจักร boq ให้เค้า.xls",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "หนังสือส่งมอบงานพร้อมรูปภาพ_ศนท_จตุจักร.docx",
+        "size": "เอกสารจริง",
+        "type": "File"
+      },
+      {
+        "name": "หนังสือส่งมอบงานพร้อมรูปภาพ_ศนท_จตุจักร.pdf",
+        "size": "เอกสารจริง",
+        "type": "PDF Document"
+      },
+      {
+        "name": "ใบเสนอราคาเชื่อม PVC LINER คุณไพโรจน์ (ศูนย์นันท.pdf",
+        "size": "เอกสารจริง",
+        "type": "PDF Document"
       }
-    ],
-    contractors: [
-      { name: "ช่างตี้ (นายวุฒิธินันต์ สมชอบ)", role: "งานรื้อ+ฉาบสระว่ายน้ำ / ปรับผิว", contact: "02-583-6939 (กสิกรไทย)", milestones: "เบิกงวด 1, 2, 3 แล้ว (เหลืองวดสุดท้าย)", amount: "480,000 บาท" },
-      { name: "คุณพัฒน์", role: "ขนขยะและเศษปูนนอกพื้นที่", contact: "โทรประสานตรง", milestones: "เบิกรายรอบการขน", amount: "65,000 บาท" },
-      { name: "ช่างเฉลิม", role: "งานระบบปั๊มกรองสระว่ายน้ำ", contact: "ช่างประจำบลูเคอร์", milestones: "เบิกงวดติดตั้งอุปกรณ์", amount: "220,000 บาท" },
-      { name: "ร้านพรวัฒนา", role: "ซัพพลายเออร์ปูนเสือมอร์ตาร์ฉาบ 50 กก.", contact: "สั่งของเข้าไซต์", milestones: "จ่ายเงินสด/โอนตามบิล DO", amount: "185,000 บาท" }
-    ],
-    materials: [
-      { item: "วัสดุรับน้ำไวนิลไลเนอร์สระว่ายน้ำ", spec: "หนา 1.50 มม. เสริมใยพิเศษ UV resistant", qty: "650", unit: "ตร.ม.", unitPrice: "850", total: "552,500" },
-      { item: "งานกันซึม Polyurea TDS เกรดพิเศษ", spec: "ความหนาฟิล์ม 1.5 - 2.0 มม. แห้งตัวเร็ว", qty: "320", unit: "ตร.ม.", unitPrice: "1,200", total: "384,000" },
-      { item: "หินธรรมชาติแกรนิตดำพ่นทราย", spec: "กว้าง 27 ซม. ความยาวมาตรฐาน ลบเหลี่ยม", qty: "115", unit: "เมตร", unitPrice: "1,450", total: "166,750" },
-      { item: "ตะแกรงน้ำล้น Grating ABS สีครีมงาช้าง", spec: "หน้ากว้าง 25 ซม. รับน้ำหนักคนเดิน", qty: "115", unit: "เมตร", unitPrice: "680", total: "78,200" }
-    ],
-    files: [
-      { name: "cost ศนท จตุจักร.xlsx", size: "48 KB", type: "Excel Cost Dossier" },
-      { name: "Final Action_Plan_จตุจักร_18พค69_v3.xlsx", size: "62 KB", type: "Action Plan WBS" },
-      { name: "Gant Chart ศยช จตุจักร.xlsx", size: "38 KB", type: "Gantt Timeline" },
-      { name: "polyurea-tds.pdf", size: "1.2 MB", type: "Technical Data Sheet" },
-      { name: "จตุจักร boq ให้เค้า.xls", size: "114 KB", type: "BOQ Standard" },
-      { name: "หนังสือส่งมอบงานพร้อมรูปภาพ_ศนท_จตุจักร.pdf", size: "2.8 MB", type: "Handover Submission" }
     ]
   },
-
   "prj-bangna": {
-    id: "prj-bangna",
-    name: "ศนท บางนา",
-    fullName: "ศูนย์นันทนาการบางนา (พื้นยาง 900 ตร.ม. & เครื่องเล่นสนาม)",
-    folderName: "ศนท บางนา",
-    folderPath: "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท บางนา",
-    aiSubfolder: "ศนท บางนา\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
-    lineGroupId: "c_bangna_line_grp",
-    lineGroupName: "บลูเคอร์ - ศนท. บางนา",
-    status: "กำลังดำเนินการ",
-    statusBadgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
-    period: "30 เม.ย. 2569 – 27 ต.ค. 2569 (180 วัน)",
-    contractBudget: 5200000,
-    targetCost: 3540000,
-    actualCost: 2680000,
-    expectedProfit: 1660000,
-    profitMargin: 31.9,
-    progressActual: 72.0,
-    progressPlanned: 75.0,
-    manpowerToday: 8,
-    unreadCount: 3,
-    lastMessageText: "โฟร์แมนวัฒน์: ส่งรูปพื้นชั้น SBR ดำ 8mm แน่นได้ระดับครับ",
-    lastMessageTime: "14:15",
-    coreSpecs: "SBR 8mm + EPDM 5mm (900 ตร.ม.) + เครื่องเล่นสนาม ส.เจริญรุ่งเรือง",
-    chatHistory: [
-      { sender: "พี่นัท", role: "admin", text: "ช่างตี้ เย็นนี้มีฝน ให้เตรียมผ้าใบคลุมโซน B ให้มิดชิด อย่าให้น้ำเซาะหน้าปูน", time: "10:20", isBoss: true },
-      { sender: "ช่างตี้", role: "worker", text: "เรียบร้อยครับพี่นัท ทีมงานขึงผ้าใบคลุมทับเสร็จแล้วครับ", time: "10:35" },
-      { sender: "ร้านพรวัฒนา", role: "supplier", text: "ส่งใบรับรอง มอก. ตะแกรง wiremesh ให้โฟร์แมนทางอีเมลแล้วนะคะ", time: "11:45" },
-      { 
-        sender: "โฟร์แมนวัฒน์", 
-        role: "foreman", 
-        text: "ส่งรูปพื้นชั้น SBR ดำ 8mm แน่นได้ระดับ ช่าง 8 นายเข้าทำงานต่อเนื่องครับ", 
-        time: "14:15",
-        photoUrl: "https://images.unsplash.com/photo-1584467735871-8e85353a8413?auto=format&fit=crop&w=800&q=80",
-        photoCaption: "IMG_20261104_141500_Bangna_SBR.jpg",
-        savedRelPath: "ศนท บางนา\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\2026-11\\IMG_20261104_141500_Bangna_SBR.jpg"
-      }
-    ],
-    wbsTasks: [
-      { id: "w-bn1", name: "1. ขุดดินปรับระดับพื้นที่สนามเด็กเล่นและบดอัด", category: "เตรียมดิน", period: "30 เม.ย. - 20 พ.ค.", weight: 10, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-bn2", name: "2. วางตะแกรงเหล็ก Wiremesh ข้ออ้อย มอก. 1x1 ม. ส่งก้อนทดสอบ", category: "โครงสร้างฐานราก", period: "21 พ.ค. - 10 มิ.ย.", weight: 10, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-bn3", name: "3. เทคอนกรีตฐานราก หนา 10 ซม. ขัดหยาบและบ่มน้ำ 28 วัน", category: "โครงสร้างฐานราก", period: "11 มิ.ย. - 20 ก.ค.", weight: 20, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-bn4", name: "4. ประกอบติดตั้งชุดเครื่องเล่นสนาม ส.เจริญรุ่งเรือง ยึดพุกเหล็ก", category: "เครื่องเล่นสนาม", period: "21 ก.ค. - 20 ส.ค.", weight: 20, progress: 90, status: "ตรวจรับ" },
-      { id: "w-bn5", name: "5. ทาน้ำยาไพรเมอร์ PU รองพื้นคอนกรีตเชื่อมประสาน", category: "งานพื้นยาง", period: "21 ส.ค. - 5 ก.ย.", weight: 10, progress: 85, status: "กำลังทำ" },
-      { id: "w-bn6", name: "6. ปูเม็ดยางดำ SBR หนา 8 มม. ผสมกาว Binder ไร้รอยต่อ", category: "งานพื้นยาง", period: "6 ก.ย. - 30 ก.ย.", weight: 15, progress: 60, status: "กำลังทำ" },
-      { id: "w-bn7", name: "7. ปูเม็ดยางสี EPDM หนา 5 มม. ลวดลายกราฟิกสนาม 900 ตร.ม.", category: "งานพื้นยาง", period: "1 ต.ค. - 27 ต.ค.", weight: 15, progress: 20, status: "รอแห้งชั้น SBR" }
-    ],
-    actionItems: [
+    "id": "prj-bangna",
+    "name": "ศนท บางนา",
+    "shortName": "ศนท บางนา",
+    "fullName": "โครงการก่อสร้างสนามเด็กเล่น ศูนย์นันทนาการบางนา (แบบเลขที่ สวท.728/1-2)",
+    "folderName": "ศนท บางนา",
+    "folderPath": "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท บางนา",
+    "aiSubfolder": "ศนท บางนา\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
+    "lineGroupId": null,
+    "lineGroupName": "ยังไม่ได้ผูกกลุ่ม LINE",
+    "status": "ส่งมอบงานแล้ว",
+    "statusLabel": "ส่งมอบงานแล้ว",
+    "statusBadgeClass": "bg-emerald-500/20 text-emerald-400 border-emerald-400/30",
+    "period": "30 เม.ย. 2569 – 27 ต.ค. 2569 (180 วัน)",
+    "contractBudget": 2250000,
+    "targetCost": 1674023,
+    "actualCost": 501592,
+    "expectedProfit": 575977,
+    "profitMargin": 25.6,
+    "progressActual": 100,
+    "progressPlanned": 100,
+    "manpowerToday": 0,
+    "unreadCount": 0,
+    "lastMessageText": "ยังไม่ได้ผูกกลุ่ม LINE — กดเพื่อดูวิธีเชิญบอท @395avvfu",
+    "lastMessageTime": "",
+    "coreSpecs": "งานพื้นคอนกรีตสนามเด็กเล่นหนา 12 ซม. (เทจริง 83 คิว) และปูพื้นยางสังเคราะห์ EPDM หนา ≥ 15 มม. (พื้นที่ตามสัญญา 365 ตร.ม. / สั่งของจริงรวมทางเดินและหน้าห้องสมรรถภาพ) | คานหุ้มยางรอบสนาม 100 ม. | โคมไฟโซลาร์เซลล์ LED 10 ชุด (เสา 5 ต้น) | เครื่องเล่นสนาม 9 รายการ และศาลากลางแจ้ง/ม้านั่ง",
+    "chatHistory": [],
+    "wbsTasks": [
       {
-        id: "act-bn1",
-        assignee: "ช่างตี้",
-        title: "เตรียมผ้าใบคลุมโซน B ป้องกันฝนตกตอนเย็น",
-        quote: "ช่างตี้ เย็นนี้มีฝน ให้เตรียมผ้าใบคลุมโซน B ให้มิดชิด อย่าให้น้ำเซาะหน้าปูน",
-        orderedBy: "พี่นัท",
-        deadline: "วันนี้ 16:00",
-        timestamp: "วันนี้ 10:20",
-        priority: "ด่วนมาก",
-        completed: false
+        "id": "WBS-BN-01",
+        "name": "งานรื้อถอน เคลียร์ริ่งพื้นที่ และปรับระดับดินเดิม (แบคโฮ)",
+        "category": "หมวด 1.1",
+        "period": "2026-04-30 – 2026-05-20",
+        "weight": 10,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "สิทธิชัย & กฤษฎางค์"
       },
       {
-        id: "act-bn2",
-        assignee: "ร้านพรวัฒนา",
-        title: "ส่งเอกสารใบรับรองผลทดสอบ Wiremesh มอก. ให้โฟร์แมน",
-        quote: "ขอใบเซอร์ มอก. ตะแกรง wiremesh ด่วน คณะกรรมการขอตรวจตอนเช้า",
-        orderedBy: "พี่นัท",
-        deadline: "พรุ่งนี้ 09:00",
-        timestamp: "วันนี้ 11:45",
-        priority: "ด่วน",
-        completed: false
-      }
-    ],
-    defects: [
-      {
-        id: "df-bn1",
-        title: "เม็ดยางดำ SBR ขอบเสาไฟมีโพรงอากาศเล็กน้อย",
-        location: "โซนเครื่องเล่น B ขอบเสาไฟ",
-        severity: "ปานกลาง",
-        status: "pending",
-        reporter: "โฟร์แมนวัฒน์",
-        date: "04 พ.ย. 2569",
-        photoUrl: "https://images.unsplash.com/photo-1541888946425-d0fbb1861564?auto=format&fit=crop&w=600&q=80"
+        "id": "WBS-BN-02",
+        "name": "งานลงทรายถมปรับระดับ 27 คิว และวางขอบคันหิน 206 ก้อน",
+        "category": "หมวด 1.2",
+        "period": "2026-05-21 – 2026-06-15",
+        "weight": 15,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "ช่างตี้"
       },
       {
-        id: "df-bn2",
-        title: "น็อตยึดสไลเดอร์เครื่องเล่นสนามตัวที่ 3 ขันไม่สุด",
-        location: "เครื่องเล่นชิ้นหลัก โซน A",
-        severity: "ด่วน",
-        status: "in-progress",
-        reporter: "ช่างตี้",
-        date: "03 พ.ย. 2569",
-        photoUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80"
-      }
-    ],
-    photos: [
+        "id": "WBS-BN-03",
+        "name": "งานวางตะแกรง Wiremesh 4 มม. และเทคอนกรีต 240 ksc หนา 12 ซม. (83 คิว)",
+        "category": "หมวด 1.3",
+        "period": "2026-06-16 – 2026-07-05",
+        "weight": 25,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "ช่างตี้ / น่ำเฮง"
+      },
       {
-        id: "p-bn1",
-        caption: "เทพื้นชั้น SBR เม็ดยางดำ 8 มม. ผสมกาว PU เสร็จแล้ว 60% สภาพพื้นแน่นได้ระดับ",
-        foreman: "โฟร์แมนวัฒน์",
-        timestamp: "04 พ.ย. 2569 · 14:15",
-        manpower: "ช่าง 8 นาย",
-        weather: "แดดร่ม ลมสงบ",
-        fileName: "IMG_20261104_141500_Bangna_SBR.jpg",
-        savedRelPath: "ศนท บางนา\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\2026-11\\IMG_20261104_141500_Bangna_SBR.jpg",
-        excelSyncStatus: "อัปเดตลง _Site_Progress_Auto.xlsx แล้ว",
-        url: "https://images.unsplash.com/photo-1584467735871-8e85353a8413?auto=format&fit=crop&w=800&q=80"
+        "id": "WBS-BN-04",
+        "name": "ติดตั้งชุดเครื่องเล่นสนามเด็กเล่น 9 รายการ (ส.เจริญรุ่งเรือง)",
+        "category": "หมวด 2.1",
+        "period": "2026-07-06 – 2026-08-25",
+        "weight": 25,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "บ.ส.เจริญรุ่งเรือง"
+      },
+      {
+        "id": "WBS-BN-05",
+        "name": "ติดตั้งโคมไฟโซลาร์เซลล์ LED 10 ชุด (เสา 5 ต้น) และศาลากลางแจ้ง",
+        "category": "หมวด 2.2",
+        "period": "2026-08-10 – 2026-09-10",
+        "weight": 10,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "ช่างประจำ"
+      },
+      {
+        "id": "WBS-BN-06",
+        "name": "งานปูพื้นยางสังเคราะห์ EPDM หนา ≥ 15 มม. (SBR 10 มม. + EPDM 5 มม.) 365 ตร.ม.",
+        "category": "หมวด 3.1",
+        "period": "2026-09-01 – 2026-10-15",
+        "weight": 15,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "ทีมบลูเคอร์"
       }
     ],
-    contractors: [
-      { name: "บจก. ส.เจริญรุ่งเรืองก่อสร้าง", role: "จัดหาเครื่องเล่นสนามพร้อมติดตั้ง", contact: "KTB #2280405407", milestones: "เบิกงวดส่งของหน้างานแล้ว", amount: "890,000 บาท" },
-      { name: "คุณสิทธิชัย / กฤษฎางค์", role: "รถแบคโฮขุดปรับระดับและบดอัด", contact: "โทรเรียกรายวัน", milestones: "จ่ายตามชั่วโมงงาน", amount: "75,000 บาท" },
-      { name: "ช่างตี้ (นายวุฒิธินันต์ สมชอบ)", role: "งานเทคอนกรีตฐานราก", contact: "02-583-6939", milestones: "เบิกงวดงานเทคอนกรีตแล้ว", amount: "320,000 บาท" }
+    "actionItems": [],
+    "defects": [],
+    "photos": [],
+    "contractors": [
+      {
+        "name": "บ.ส.เจริญรุ่งเรืองก่อสร้าง",
+        "role": "เครื่องเล่นสนามเด็กเล่นพร้อมติดตั้ง",
+        "contact": "บ.ส.เจริญรุ่งเรืองก่อสร้าง",
+        "milestones": "งวด 1: 107,000 บ. / งวด 2: 120,000 บ.",
+        "amount": "510,000 บาท"
+      },
+      {
+        "name": "ช่างตี้ (วุฒิธินันต์ สมชอบ)",
+        "role": "ค่าแรงเทคอนกรีตหนา 12 ซม. 584 ตร.ม. @ 95 บ. + ซื้อของ",
+        "contact": "กสิกร 0258369939",
+        "milestones": "งวด 1: 15,000 บ. / งวด 2: 30,000 บ. / ซื้อของ 642 บ.",
+        "amount": "56,122 บาท"
+      },
+      {
+        "name": "สิทธิชัย & กฤษฎางค์",
+        "role": "งานเคลียร์ริ่งและปรับระดับพื้นที่ (รถแบคโฮ)",
+        "contact": "สิทธิชัย 7,200 บ. / กฤษฎางค์ 10,500 บ.",
+        "milestones": "จ่ายครบแล้ว 17,700 บ.",
+        "amount": "17,700 บาท"
+      }
     ],
-    materials: [
-      { item: "เม็ดยางดำ SBR หนา 8 มม.", spec: "Recycled Black SBR Granule 1-3mm", qty: "900", unit: "ตร.ม.", unitPrice: "420", total: "378,000" },
-      { item: "เม็ดยางสี EPDM หนา 5 มม.", spec: "Virgin EPDM Color Granule เกรดทน UV", qty: "900", unit: "ตร.ม.", unitPrice: "680", total: "612,000" }
+    "materials": [
+      {
+        "item": "คอนกรีตผสมเสร็จ 300 Cube / 250 Cylinder (น่ำเฮง)",
+        "spec": "เทเสร็จแล้ว (คืนเงิน 2 คิวแล้ว)",
+        "qty": "83 คิว",
+        "unit": "คิว",
+        "unitPrice": "-",
+        "total": "153,627.2"
+      },
+      {
+        "item": "ตะแกรง Wiremesh ข้ออ้อย 4 มม. 600 ตร.ม. + ขอบคันหิน 206 ก้อน",
+        "spec": "ส่งแล้ว (25/06/26)",
+        "qty": "1 ชุด",
+        "unit": "ชุด",
+        "unitPrice": "-",
+        "total": "39,208"
+      },
+      {
+        "item": "ทรายถม (KG trading)",
+        "spec": "ส่งแล้ว",
+        "qty": "27 คิว",
+        "unit": "คิว",
+        "unitPrice": "-",
+        "total": "14,733.9"
+      },
+      {
+        "item": "เหล็ก DB12, RB6, ลวดมัดเหล็ก (เชื้อไพบูลย์ สตีล) & เพลทเจาะรู (แสงสหมิตร)",
+        "spec": "ส่งแล้ว",
+        "qty": "1 ชุด",
+        "unit": "ชุด",
+        "unitPrice": "-",
+        "total": "3,680.8"
+      },
+      {
+        "item": "วัสดุพื้นยาง EPDM + ยางดำ SBR + กาว PU (ตามแผน Cost.xlsx)",
+        "spec": "ส่งมอบงานเรียบร้อย",
+        "qty": "SBR 8,000 กก., EPDM 5,600 กก., กาว PU 1,450 กก.",
+        "unit": "ชุด",
+        "unitPrice": "-",
+        "total": "460,500"
+      }
     ],
-    files: [
-      { name: "cost ศยช.บางนา.xlsx", size: "52 KB", type: "Excel Cost Master" },
-      { name: "Final Action_Plan_ศยช_บางนา.xlsx", size: "58 KB", type: "Action Plan WBS" },
-      { name: "900sqm 8mmSBR+5mm epdm granule project 25.11.19.xls", size: "84 KB", type: "EPDM Formula Specification" },
-      { name: "Gant Chart ศยช บางนา.xlsx", size: "42 KB", type: "Gantt Timeline" },
-      { name: "BOQ.pdf", size: "3.4 MB", type: "Official B2G BOQ" }
+    "files": [
+      {
+        "name": "Cost.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "cost ศยช.บางนา.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "Action_Plan_บางนา_30เมย69.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "BOQ บางนา ส่งเค้า.xls",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "TOR บางนา.pdf",
+        "size": "เอกสารจริง",
+        "type": "PDF Document"
+      }
     ]
   },
-
   "prj-bangkae": {
-    id: "prj-bangkae",
-    name: "ศนท บางแค",
-    fullName: "ศูนย์นันทนาการบางแค (ระบบปรับอากาศ HVAC & หลังคา Tensile)",
-    folderName: "ศนท บางแค",
-    folderPath: "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท บางแค",
-    aiSubfolder: "ศนท บางแค\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
-    lineGroupId: "c_bangkae_line_grp",
-    lineGroupName: "บลูเคอร์ - ศนท. บางแค",
-    status: "กำลังดำเนินการ",
-    statusBadgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
-    period: "15 พ.ค. 2569 – 15 ต.ค. 2569 (150 วัน)",
-    contractBudget: 4950000,
-    targetCost: 3390000,
-    actualCost: 2980000,
-    expectedProfit: 1560000,
-    profitMargin: 31.5,
-    progressActual: 88.0,
-    progressPlanned: 90.0,
-    manpowerToday: 5,
-    unreadCount: 1,
-    lastMessageText: "ช่างแอร์: เข้าเช็คระดับท่อเดรนน้ำทิ้งห้องประชุม 2 แล้วครับ",
-    lastMessageTime: "13:40",
-    coreSpecs: "แอร์ Inverter 32,000 BTU เบอร์ 5 + หลังคาผ้าใบแรงดึงสูง Tensile",
-    chatHistory: [
-      { sender: "พี่นัท", role: "admin", text: "ช่างแอร์ ห้องประชุม 2 ท่อน้ำทิ้งหยดตอนเปิดเร่งความเย็น เข้าไปปรับระดับเดรนด่วน", time: "13:10", isBoss: true },
-      { sender: "ช่างแอร์ (ทีเค แอร์)", role: "worker", text: "รับทราบครับพี่นัท บ่ายนี้ช่างแอร์เข้าปรับสโลปท่อเดรนให้ครับ", time: "13:40" },
-      { sender: "โฟร์แมนวัฒน์", role: "foreman", text: "งานผ้าใบ Tensile ขึงตึงเรียบร้อยดี เหลือเก็บสีเสาโครงสร้างครับ", time: "14:00" }
-    ],
-    wbsTasks: [
-      { id: "w-bk1", name: "1. งานสำรวจและถอดสเปกแอร์เปรียบเทียบซัพพลายเออร์ 10 เจ้า", category: "จัดซื้อ", period: "15 พ.ค. - 30 พ.ค.", weight: 10, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-bk2", name: "2. ติดตั้งโครงสร้างเหล็กเสาและคานรับหลังคา Tensile Membrane", category: "โครงสร้างหลังคา", period: "1 มิ.ย. - 30 มิ.ย.", weight: 25, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-bk3", name: "3. ขึงผ้าใบแรงดึงสูง Tensile Membrane ป้องกันรังสียูวี", category: "โครงสร้างหลังคา", period: "1 ก.ค. - 31 ก.ค.", weight: 20, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-bk4", name: "4. ติดตั้งเครื่องปรับอากาศ CFH-32IVSA Inverter 32,000 BTU", category: "งานระบบ HVAC", period: "1 ส.ค. - 31 ส.ค.", weight: 25, progress: 95, status: "ทดสอบระบบ" },
-      { id: "w-bk5", name: "5. งานสกัดและฉาบซ่อมแซมรอบสระว่ายน้ำ", category: "ปรับปรุงสระ", period: "1 ก.ย. - 25 ก.ย.", weight: 10, progress: 85, status: "เก็บงาน" },
-      { id: "w-bk6", name: "6. จัดทำรายงานสรุปรูปถ่ายก่อน-หลัง FINAL เสนอตรวจรับ", category: "เอกสารตรวจรับ", period: "26 ก.ย. - 15 ต.ค.", weight: 10, progress: 60, status: "จัดทำเล่ม" }
-    ],
-    actionItems: [
+    "id": "prj-bangkae",
+    "name": "ศนท บางแค",
+    "shortName": "ศนท บางแค",
+    "fullName": "งานปรับปรุงศูนย์นันทนาการบางแค (เรืองสอน) (แบบเลขที่ สวท. 738/1-21)",
+    "folderName": "ศนท บางแค",
+    "folderPath": "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท บางแค",
+    "aiSubfolder": "ศนท บางแค\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
+    "lineGroupId": null,
+    "lineGroupName": "ยังไม่ได้ผูกกลุ่ม LINE",
+    "status": "ส่งมอบงานแล้ว",
+    "statusLabel": "ส่งมอบงานแล้ว",
+    "statusBadgeClass": "bg-emerald-500/20 text-emerald-400 border-emerald-400/30",
+    "period": "18 พ.ค. 2569 – 15 ต.ค. 2569 (150 วัน)",
+    "contractBudget": 4999000,
+    "targetCost": 3891176,
+    "actualCost": 696590,
+    "expectedProfit": 1107824,
+    "profitMargin": 22.2,
+    "progressActual": 100,
+    "progressPlanned": 100,
+    "manpowerToday": 0,
+    "unreadCount": 0,
+    "lastMessageText": "ยังไม่ได้ผูกกลุ่ม LINE — กดเพื่อดูวิธีเชิญบอท @395avvfu",
+    "lastMessageTime": "",
+    "coreSpecs": "1. ปรับปรุงอาคารกีฬาในร่ม (ทาสี 517 ตร.ม., ซ่อมกระจก, ห้องน้ำ, พื้นไวนิล 2 มม.) 2. ปรับปรุงสระว่ายน้ำ 406 ตร.ม. (ปูไวนิลไลเนอร์ 1.50 มม., ขอบหินแกรนิตดำ 75 ม., ระบบท่อ UPVC, หลังคาคลุมสระผ้าใบแรงดึงสูง) 3. ปรับปรุงอาคารกิจกรรม 4. ปรับปรุงลานอเนกประสงค์ 5. ครุภัณฑ์เครื่องปรับอากาศ",
+    "chatHistory": [],
+    "wbsTasks": [
       {
-        id: "act-bk1",
-        assignee: "ช่างแอร์ (ทีเค แอร์)",
-        title: "แก้ไขท่อน้ำทิ้งแอร์ห้องประชุม 2 ให้มีความลาดเอียงระบายน้ำ",
-        quote: "ช่างแอร์ ห้องประชุม 2 ท่อน้ำทิ้งหยดตอนเปิดเร่งความเย็น เข้าไปปรับระดับเดรนด่วน",
-        orderedBy: "พี่นัท",
-        deadline: "พรุ่งนี้ 12:00",
-        timestamp: "วันนี้ 13:10",
-        priority: "ด่วน",
-        completed: false
+        "id": "WBS-BK-01",
+        "name": "งานปรับปรุงอาคารกีฬาในร่ม ทาสีภายใน-ภายนอก 517 ตร.ม. และซ่อมแซมกระจก",
+        "category": "หมวด 1.1",
+        "period": "2026-05-18 – 2026-07-30",
+        "weight": 20,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "นิน / จักรพงษ์"
+      },
+      {
+        "id": "WBS-BK-02",
+        "name": "เปลี่ยนสุขภัณฑ์ห้องน้ำ 40 กว่าตัว ประตูห้องน้ำ 6 บาน และฝ้าอะคูสติก",
+        "category": "หมวด 1.2",
+        "period": "2026-06-01 – 2026-07-15",
+        "weight": 15,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "วิชัย"
+      },
+      {
+        "id": "WBS-BK-03",
+        "name": "งานรื้อกระเบื้องเดิม ฉาบผิวสระว่ายน้ำ 406 ตร.ม. และซ่อมบ่ารางน้ำล้น",
+        "category": "หมวด 2.1",
+        "period": "2026-06-15 – 2026-08-15",
+        "weight": 20,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "ช่างตี้"
+      },
+      {
+        "id": "WBS-BK-04",
+        "name": "ติดตั้งโครงสร้างและหลังคาคลุมสระผ้าใบแรงดึงสูง (อาร์คเทค)",
+        "category": "หมวด 2.2",
+        "period": "2026-07-01 – 2026-09-15",
+        "weight": 25,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "อาร์คเทค ซัพพลาย"
+      },
+      {
+        "id": "WBS-BK-05",
+        "name": "งานติดตั้งระบบท่อ UPVC วาล์วสระว่ายน้ำ และไวนิลไลเนอร์ 1.50 มม.",
+        "category": "หมวด 2.3",
+        "period": "2026-08-01 – 2026-09-30",
+        "weight": 20,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "เฉลิม / บลูเคอร์"
       }
     ],
-    defects: [
+    "actionItems": [],
+    "defects": [],
+    "photos": [],
+    "contractors": [
       {
-        id: "df-bk1",
-        title: "ท่อเดรนน้ำทิ้งแอร์ห้องประชุม 2 มีน้ำหยด",
-        location: "ห้องประชุม 2 ชั้น 2",
-        severity: "ปานกลาง",
-        status: "in-progress",
-        reporter: "โฟร์แมนวัฒน์",
-        date: "04 พ.ย. 2569",
-        photoUrl: "https://images.unsplash.com/photo-1584467735871-8e85353a8413?auto=format&fit=crop&w=600&q=80"
+        "name": "อาร์คเทค ซัพพลาย",
+        "role": "หลังคาคลุมสระผ้าใบแรงดึงสูง (แบ่งจ่าย 40/25/25/10)",
+        "contact": "อาร์คเทค ซัพพลาย",
+        "milestones": "งวด 1: 278,200 บ. / งวด 2: 173,875 บ.",
+        "amount": "695,500 บาท"
+      },
+      {
+        "name": "นิน",
+        "role": "งานทาสี (ค่าของ 108,840.40 + ค่าแรง 168,375.20 + ฉาบปูน 21,400)",
+        "contact": "ช่างนิน",
+        "milestones": "รอดำเนินการ",
+        "amount": "298,616 บาท"
+      },
+      {
+        "name": "เฉลิม",
+        "role": "งานระบบสระว่ายน้ำ (แบ่งจ่าย 40/40/20)",
+        "contact": "ทีมช่างเฉลิม",
+        "milestones": "งวด 1: 68,000 บ.",
+        "amount": "170,000 บาท"
+      },
+      {
+        "name": "ช่างตี้ (วุฒิธินันต์ สมชอบ)",
+        "role": "งานรื้อ+ฉาบสระว่ายน้ำ 400 ตร.ม. + ค่าที่พัก + ซื้อของ",
+        "contact": "กสิกรไทย 0258369939",
+        "milestones": "งวด 1–3 + ของ = 80,700 บ.",
+        "amount": "125,700 บาท"
+      },
+      {
+        "name": "จักรพงษ์",
+        "role": "งานซ่อมกระจกอาคาร",
+        "contact": "ช่างจักรพงษ์",
+        "milestones": "งวด 1: 32,500 บ.",
+        "amount": "65,000 บาท"
+      },
+      {
+        "name": "วิชัย (วิชัย กาสีใจ)",
+        "role": "เปลี่ยนสุขภัณฑ์ 40 กว่าตัว, ประตูห้องน้ำ 6 บาน, ฝ้าอะคูสติก, ไฟ Downlight",
+        "contact": "กสิกร 0283802965",
+        "milestones": "จ่ายครบแล้ว 2 งวด 40,000 บ.",
+        "amount": "40,000 บาท"
       }
     ],
-    photos: [
+    "materials": [
       {
-        id: "p-bk1",
-        caption: "ติดตั้งชุดคอยล์เย็น Inverter 32,000 BTU และเดินท่อน้ำยาหุ้มฉนวนเรียบร้อย",
-        foreman: "โฟร์แมนวัฒน์",
-        timestamp: "03 พ.ย. 2569 · 16:00",
-        manpower: "ช่าง 5 นาย",
-        weather: "แดดจัด",
-        fileName: "IMG_20261103_160000_HVAC_Bangkae.jpg",
-        savedRelPath: "ศนท บางแค\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\2026-11\\IMG_20261103_160000_HVAC_Bangkae.jpg",
-        excelSyncStatus: "อัปเดตลง _Site_Progress_Auto.xlsx แล้ว",
-        url: "https://images.unsplash.com/photo-1541888946425-d0fbb1861564?auto=format&fit=crop&w=800&q=80"
+        "item": "ปูนฉาบเสือมอร์ตาร์ (พรวัฒนา)",
+        "spec": "ส่งแล้ว",
+        "qty": "215 ลูก",
+        "unit": "ลูก",
+        "unitPrice": "-",
+        "total": "19,115"
+      },
+      {
+        "item": "แผ่นไวนิลไลเนอร์ 1.50 มม. เสริมใยพิเศษ",
+        "spec": "นำเข้าแล้ว",
+        "qty": "406 ตร.ม.",
+        "unit": "ตร.ม.",
+        "unitPrice": "-",
+        "total": "898,072"
       }
     ],
-    contractors: [
-      { name: "บจก. อาร์คเทค ซัพพลาย", role: "หลังคาผ้าใบแรงดึงสูง Tensile", contact: "ฝ่ายวิศวกรรม", milestones: "เบิกงวดขึงผ้าใบแล้ว", amount: "1,150,000 บาท" },
-      { name: "ช่างตี้ (นายวุฒิธินันต์)", role: "งานรื้อ+ฉาบสระว่ายน้ำ", contact: "02-583-6939", milestones: "เบิกงวด 1, 2 แล้ว", amount: "380,000 บาท" }
-    ],
-    materials: [
-      { item: "เครื่องปรับอากาศ Inverter 32,000 BTU", spec: "CFH-32IVSA เบอร์ 5 สองดาว มอก.", qty: "12", unit: "ชุด", unitPrice: "38,500", total: "462,000" }
-    ],
-    files: [
-      { name: "cost ศนท บางแค - รอเงินคืนนั่งร้าน.xlsx", size: "45 KB", type: "Cost Sheet" },
-      { name: "Final Action_Plan_ศนทบางแค_2569.xlsx", size: "55 KB", type: "Action Plan" },
-      { name: "2025_CFH-32IVSA_Ref.PR.pdf", size: "1.8 MB", type: "HVAC Catalog Spec" }
+    "files": [
+      {
+        "name": "boq.xls",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "cost ศนท บางแค - รอเงินคืนนั่งร้าน.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "Final Action_Plan_ศนทบางแค_2569.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "แบบ ปร.4 ปร.5 บางแค.pdf",
+        "size": "เอกสารจริง",
+        "type": "PDF Document"
+      }
     ]
   },
-
   "prj-saphansung": {
-    id: "prj-saphansung",
-    name: "ศนท สะพานสูง",
-    fullName: "ศูนย์นันทนาการสะพานสูง (งานฝ้าเพดาน & ทรายล้างรอบสระ)",
-    folderName: "ศนท สะพานสูง",
-    folderPath: "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท สะพานสูง",
-    aiSubfolder: "ศนท สะพานสูง\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
-    lineGroupId: "c_saphansung_line_grp",
-    lineGroupName: "บลูเคอร์ - ศนท. สะพานสูง",
-    status: "กำลังดำเนินการ",
-    statusBadgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
-    period: "20 พ.ค. 2569 – 14 พ.ย. 2569 (180 วัน)",
-    contractBudget: 5300000,
-    targetCost: 3610000,
-    actualCost: 2310000,
-    expectedProfit: 1690000,
-    profitMargin: 31.9,
-    progressActual: 64.0,
-    progressPlanned: 68.0,
-    manpowerToday: 7,
-    unreadCount: 0,
-    lastMessageText: "โฟร์แมนวัฒน์: งานฝ้าเพดานห้องน้ำหญิง ปิดแผ่นยิปซัมแล้วครับ",
-    lastMessageTime: "11:20",
-    coreSpecs: "ฝ้าเพดานฉาบเรียบกันชื้น 9mm + ทรายล้างรอบสระ เบอร์ 4",
-    chatHistory: [
-      { sender: "พี่นัท", role: "admin", text: "ช่างตี้ โครงฝ้าห้องเปลี่ยนเสื้อผ้าตกท้องช้างอยู่ 2 ซม. ปรับลวดสลิงให้ได้ระดับก่อนปิดแผ่นยิปซัม", time: "14:00", isBoss: true },
-      { sender: "ช่างตี้", role: "worker", text: "กำลังให้ลูกน้องดึงสลิงปรับระดับตามเลเซอร์ครับ", time: "14:15" },
-      { sender: "โฟร์แมนวัฒน์", role: "foreman", text: "ส่งรูปฝ้าเพดานยิปซัมกันชื้น 9 มม. ฉาบเรียบพร้อมขัดแต่งรอยต่อ ช่างเข้า 7 นายครับ", time: "11:00" }
-    ],
-    wbsTasks: [
-      { id: "w-ss1", name: "1. งานรื้อถอนฝ้าเพดานเดิมและโครงคร่าวเก่าชำรุด", category: "รื้อถอน", period: "20 พ.ค. - 10 มิ.ย.", weight: 10, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-ss2", name: "2. ติดตั้งโครงคร่าวสังกะสีเบอร์ 24 แขวนลวดสลิงปรับระดับ", category: "งานฝ้าเพดาน", period: "11 มิ.ย. - 15 ก.ค.", weight: 20, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-ss3", name: "3. ติดตั้งแผ่นยิปซัมกันชื้นหนา 9 มม. ฉาบเรียบและทาสีรองพื้น", category: "งานฝ้าเพดาน", period: "16 ก.ค. - 31 ส.ค.", weight: 25, progress: 80, status: "กำลังทำ" },
-      { id: "w-ss4", name: "4. สกัดทรายล้างเดิมรอบสระและปรับระดับบ่ารางน้ำ", category: "งานทรายล้าง", period: "1 ก.ย. - 25 ก.ย.", weight: 15, progress: 70, status: "กำลังทำ" },
-      { id: "w-ss5", name: "5. ปูทรายล้างเบอร์ 4 สีขาวสลับเทา เคลือบน้ำยาอะคริลิกเงา", category: "งานทรายล้าง", period: "26 ก.ย. - 25 ต.ค.", weight: 20, progress: 40, status: "กำลังทำ" },
-      { id: "w-ss6", name: "6. งานตรวจสอบความสมบูรณ์และทดสอบการรั่วซึม", category: "ตรวจรับ", period: "26 ต.ค. - 14 พ.ย.", weight: 10, progress: 10, status: "รอตรวจ" }
-    ],
-    actionItems: [
+    "id": "prj-saphansung",
+    "name": "ศนท สะพานสูง",
+    "shortName": "ศนท สะพานสูง",
+    "fullName": "งานปรับปรุงศูนย์นันทนาการสะพานสูง (แบบเลขที่ สวท. 743/1-8)",
+    "folderName": "ศนท สะพานสูง",
+    "folderPath": "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท สะพานสูง",
+    "aiSubfolder": "ศนท สะพานสูง\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
+    "lineGroupId": null,
+    "lineGroupName": "ยังไม่ได้ผูกกลุ่ม LINE",
+    "status": "กำลังดำเนินการก่อสร้าง",
+    "statusLabel": "กำลังดำเนินการก่อสร้าง",
+    "statusBadgeClass": "bg-sky-500/20 text-sky-300 border-sky-400/30",
+    "period": "ระยะเวลาดำเนินการ 180 วัน (กำหนดส่งมอบ 14 พ.ย. 2569)",
+    "contractBudget": 5157000,
+    "targetCost": 3955760,
+    "actualCost": 857971,
+    "expectedProfit": 1201240,
+    "profitMargin": 23.3,
+    "progressActual": 60,
+    "progressPlanned": 65,
+    "manpowerToday": 0,
+    "unreadCount": 0,
+    "lastMessageText": "ยังไม่ได้ผูกกลุ่ม LINE — กดเพื่อดูวิธีเชิญบอท @395avvfu",
+    "lastMessageTime": "",
+    "coreSpecs": "1. ปรับปรุงสระว่ายน้ำ 406 ตร.ม. (ปูไวนิลไลเนอร์ 1.50 มม., ขอบหินแกรนิตดำ 75 ม., ทางเดินรอบสระปูพื้นยาง EPDM หนา 15 มม. 270 ตร.ม., หลังคาคลุมสระผ้าใบแรงดึงสูง 620 ตร.ม.) 2. ปรับปรุงอาคารกิจกรรม (ฝ้าเพดาน/ผนังซับเสียง, ตู้ Built-in, ห้องน้ำ) 3. ปรับปรุงอาคารกีฬาในร่ม",
+    "chatHistory": [],
+    "wbsTasks": [
       {
-        id: "act-ss1",
-        assignee: "ช่างตี้",
-        title: "ปรับระดับโครงคร่าวฝ้าเพดานห้องเปลี่ยนเสื้อผ้า 1 แผง",
-        quote: "ช่างตี้ โครงฝ้าห้องเปลี่ยนเสื้อผ้าตกท้องช้างอยู่ 2 ซม. ปรับลวดสลิงให้ได้ระดับก่อนปิดแผ่นยิปซัม",
-        orderedBy: "พี่นัท",
-        deadline: "พรุ่งนี้ 15:00",
-        timestamp: "วันนี้ 14:00",
-        priority: "ด่วน",
-        completed: false
+        "id": "WBS-SP-01",
+        "name": "งานสกัดรื้อกระเบื้องสระ 400 ตร.ม. และรื้อทรายล้างรอบสระ 270 ตร.ม. พร้อมขนขยะ",
+        "category": "หมวด 1.1",
+        "period": "2026-05-18 – 2026-06-20",
+        "weight": 15,
+        "progress": 100,
+        "status": "เสร็จสิ้น",
+        "assignee": "ช่างตี้ / พัฒน์"
+      },
+      {
+        "id": "WBS-SP-02",
+        "name": "งานฉาบปรับผิวสระว่ายน้ำและซ่อมบ่ารางน้ำล้น 406 ตร.ม.",
+        "category": "หมวด 1.2",
+        "period": "2026-06-21 – 2026-07-25",
+        "weight": 15,
+        "progress": 85,
+        "status": "กำลังทำ",
+        "assignee": "ช่างตี้"
+      },
+      {
+        "id": "WBS-SP-03",
+        "name": "ติดตั้งโครงสร้างหลังคาผ้าใบแรงดึงสูง Tensile Membrane 620 ตร.ม.",
+        "category": "หมวด 1.3",
+        "period": "2026-07-10 – 2026-09-30",
+        "weight": 25,
+        "progress": 70,
+        "status": "กำลังทำ",
+        "assignee": "อาร์คเทค ซัพพลาย"
+      },
+      {
+        "id": "WBS-SP-04",
+        "name": "งานปรับปรุงระบบท่อ UPVC วาล์ว และปั๊มหมุนเวียนน้ำสระ",
+        "category": "หมวด 2.1",
+        "period": "2026-07-15 – 2026-09-15",
+        "weight": 20,
+        "progress": 65,
+        "status": "กำลังทำ",
+        "assignee": "เฉลิม"
+      },
+      {
+        "id": "WBS-SP-05",
+        "name": "ปูวัสดุรับน้ำไวนิลไลเนอร์ 1.50 มม. และปูพื้นยางสังเคราะห์ EPDM ทางเดิน 270 ตร.ม.",
+        "category": "หมวด 2.2",
+        "period": "2026-09-01 – 2026-10-31",
+        "weight": 25,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "ทีมบลูเคอร์"
       }
     ],
-    defects: [
+    "actionItems": [],
+    "defects": [],
+    "photos": [],
+    "contractors": [
       {
-        id: "df-ss1",
-        title: "โครงคร่าวฝ้าห้องเปลี่ยนเสื้อผ้าไม่ได้ระดับ 1 แผง",
-        location: "ห้องเปลี่ยนเสื้อผ้าชั้น 1",
-        severity: "ปานกลาง",
-        status: "pending",
-        reporter: "โฟร์แมนวัฒน์",
-        date: "04 พ.ย. 2569",
-        photoUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80"
+        "name": "อาร์คเทค ซัพพลาย",
+        "role": "หลังคาคลุมสระผ้าใบแรงดึงสูง 620 ตร.ม.",
+        "contact": "อาร์คเทค ซัพพลาย",
+        "milestones": "จ่ายงวด 1: 278,200 บ. (40%)",
+        "amount": "695,500 บาท"
+      },
+      {
+        "name": "เฉลิม",
+        "role": "งานระบบสระว่ายน้ำ (แบ่งจ่าย 40/40/20)",
+        "contact": "ทีมช่างเฉลิม",
+        "milestones": "จ่ายงวด 1: 68,000 บ. (40%)",
+        "amount": "170,000 บาท"
+      },
+      {
+        "name": "ช่างตี้ (วุฒิธินันต์ สมชอบ)",
+        "role": "รื้อ+ฉาบสระว่ายน้ำ 400 ตร.ม. (120,000) + รื้อทรายล้างรอบสระ 270 ตร.ม. (18,900)",
+        "contact": "กสิกรไทย 0258369939",
+        "milestones": "จ่ายงวด 1–6 รวม 100,000 บ.",
+        "amount": "138,900 บาท"
+      },
+      {
+        "name": "พัฒน์",
+        "role": "ขนขยะ 5 เที่ยว @ 1,000 บ.",
+        "contact": "พัฒน์บริการขนส่ง",
+        "milestones": "จ่ายครบแล้ว 5,000 บ.",
+        "amount": "5,000 บาท"
       }
     ],
-    photos: [
+    "materials": [
       {
-        id: "p-ss1",
-        caption: "งานติดตั้งแผ่นยิปซัมกันชื้น 9 มม. ฉาบเรียบพร้อมขัดแต่งรอยต่อ",
-        foreman: "โฟร์แมนวัฒน์",
-        timestamp: "04 พ.ย. 2569 · 11:00",
-        manpower: "ช่าง 7 นาย",
-        weather: "แดดจัด",
-        fileName: "IMG_20261104_110000_Ceiling_SaphanSung.jpg",
-        savedRelPath: "ศนท สะพานสูง\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\2026-11\\IMG_20261104_110000_Ceiling_SaphanSung.jpg",
-        excelSyncStatus: "อัปเดตลง _Site_Progress_Auto.xlsx แล้ว",
-        url: "https://images.unsplash.com/photo-1584467735871-8e85353a8413?auto=format&fit=crop&w=800&q=80"
+        "item": "นำเข้าแผ่น PVC ปูสระรวมภาษี/DO",
+        "spec": "นำเข้าแล้ว",
+        "qty": "1 ล็อต",
+        "unit": "ชุด",
+        "unitPrice": "-",
+        "total": "391,580.14"
+      },
+      {
+        "item": "ปูนฉาบเสือมอร์ตาร์ 150 ลูก (พรวัฒนา)",
+        "spec": "ส่งแล้ว",
+        "qty": "150 ลูก",
+        "unit": "ลูก",
+        "unitPrice": "-",
+        "total": "13,800"
+      },
+      {
+        "item": "ปูน TPI เขียว (ยงแสงสวัสดิ์)",
+        "spec": "ส่งแล้ว",
+        "qty": "1 ชุด",
+        "unit": "ชุด",
+        "unitPrice": "-",
+        "total": "1,391"
       }
     ],
-    contractors: [
-      { name: "บจก. อาร์คเทค ซัพพลาย", role: "หลังคาผ้าใบแรงดึงสูง Tensile", contact: "ฝ่ายวิศวกรรม", milestones: "เบิกตามงวดงาน", amount: "1,200,000 บาท" },
-      { name: "ช่างตี้ (นายวุฒิธินันต์)", role: "รื้อทรายล้างและงานฝ้าเพดาน", contact: "02-583-6939", milestones: "เบิกงวด 1, 2 แล้ว", amount: "410,000 บาท" }
-    ],
-    materials: [
-      { item: "แผ่นยิปซัมกันชื้น หนา 9 มม.", spec: "Gypsum Moisture Resistant Board 1.2x2.4m", qty: "680", unit: "แผ่น", unitPrice: "215", total: "146,200" }
-    ],
-    files: [
-      { name: "cost ศนท สะพานสูง.xlsx", size: "44 KB", type: "Cost Sheet" },
-      { name: "Gant Chart ศยช สะพานสูง.xlsx", size: "39 KB", type: "Gantt Timeline" }
+    "files": [
+      {
+        "name": "สะพานสูง BOQ ส่งเค้า.xls",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "cost ศนท สะพานสูง.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "Action_Plan_สะพานสูง_2569.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "แบบ ปร.4 ปร.5 สะพานสูง.pdf",
+        "size": "เอกสารจริง",
+        "type": "PDF Document"
+      }
     ]
   },
-
   "prj-lumpini": {
-    id: "prj-lumpini",
-    name: "ศนท ลุมพินี",
-    fullName: "ศูนย์นันทนาการลุมพินี (ซ่อมเพดาน Sika & ประปา Rough-In)",
-    folderName: "ศนท ลุมพินี",
-    folderPath: "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท ลุมพินี",
-    aiSubfolder: "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
-    lineGroupId: "c_lumpini_line_grp",
-    lineGroupName: "บลูเคอร์ - ศนท. ลุมพินี",
-    status: "กำลังดำเนินการ",
-    statusBadgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
-    period: "10 มิ.ย. 2569 – 30 ธ.ค. 2569 (200 วัน)",
-    contractBudget: 5200000,
-    targetCost: 3480000,
-    actualCost: 1810000,
-    expectedProfit: 1720000,
-    profitMargin: 33.1,
-    progressActual: 52.0,
-    progressPlanned: 55.0,
-    manpowerToday: 6,
-    unreadCount: 1,
-    lastMessageText: "ช่างหนุ่ม: เดินท่อประปา Rough-In 4 หุน เมนวาล์วเรียบร้อยครับ",
-    lastMessageTime: "10:15",
-    coreSpecs: "Sika MonoTop ซ่อมเพดาน + ประปา Rough-In 4 หุน แยก 4 สาย + กระเบื้อง Duragres",
-    chatHistory: [
-      { sender: "พี่นัท", role: "admin", text: "ช่างหนุ่ม อัดเทสน้ำท่อ 4 หุนห้องน้ำ 1 ทิ้งไว้ 4 ชม. เช็คเกจวัดแรงดันอย่าให้ตก", time: "15:20", isBoss: true },
-      { sender: "ช่างหนุ่ม", role: "worker", text: "อัดแรงดัน 8 บาร์ไว้ตั้งแต่เที่ยง เกจยังนิ่งสนิทครับพี่นัท", time: "15:45" },
-      { sender: "โฟร์แมนวัฒน์", role: "foreman", text: "ปูน Sika MonoTop แต้มซ่อมท้องพื้นเพดานแห้งสนิทแล้ว พร้อมขัดผิวครับ", time: "16:10" }
-    ],
-    wbsTasks: [
-      { id: "w-lp1", name: "1. งานสกัดคอนกรีตเพดานแตกร้าวและทายากันสนิมเหล็กเสริม", category: "ซ่อมโครงสร้าง", period: "10 มิ.ย. - 30 มิ.ย.", weight: 15, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-lp2", name: "2. ฉาบซ่อมเพดานคอนกรีตด้วยมอร์ตาร์โครงสร้าง Sika MonoTop", category: "ซ่อมโครงสร้าง", period: "1 ก.ค. - 31 ก.ค.", weight: 20, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-lp3", name: "3. งานเดินท่อน้ำดี Rough-In 4 หุน แยก 4 สาย เมนวาล์วอิสระ", category: "งานประปา", period: "1 ส.ค. - 15 ก.ย.", weight: 25, progress: 75, status: "กำลังทำ" },
-      { id: "w-lp4", name: "4. ปูกระเบื้องผนัง Duragres 30x60 ซม. และติดตั้งโคม Carini", category: "งานสถาปัตย์", period: "16 ก.ย. - 31 ต.ค.", weight: 20, progress: 30, status: "กำลังทำ" },
-      { id: "w-lp5", name: "5. ปรับปรุงพื้นสระว่ายน้ำและลงพื้นยางสังเคราะห์ EPDM", category: "งานพื้นสระ", period: "1 พ.ย. - 15 ธ.ค.", weight: 15, progress: 0, status: "รอหน้างาน" }
-    ],
-    actionItems: [
+    "id": "prj-lumpini",
+    "name": "ศนท ลุมพินี",
+    "shortName": "ศนท ลุมพินี",
+    "fullName": "งานปรับปรุงศูนย์นันทนาการลุมพินี กรุงเทพมหานคร",
+    "folderName": "ศนท ลุมพินี",
+    "folderPath": "C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท ลุมพินี",
+    "aiSubfolder": "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
+    "lineGroupId": null,
+    "lineGroupName": "ยังไม่ได้ผูกกลุ่ม LINE",
+    "status": "กำลังดำเนินการก่อสร้าง",
+    "statusLabel": "กำลังดำเนินการก่อสร้าง",
+    "statusBadgeClass": "bg-sky-500/20 text-sky-300 border-sky-400/30",
+    "period": "กำหนดส่งมอบช่วงท้ายปี 2569",
+    "contractBudget": 0,
+    "targetCost": 140900,
+    "actualCost": 32000,
+    "expectedProfit": 0,
+    "profitMargin": 0,
+    "progressActual": 35,
+    "progressPlanned": 40,
+    "manpowerToday": 0,
+    "unreadCount": 0,
+    "lastMessageText": "ยังไม่ได้ผูกกลุ่ม LINE — กดเพื่อดูวิธีเชิญบอท @395avvfu",
+    "lastMessageTime": "",
+    "coreSpecs": "งานรื้อและฉาบสระว่ายน้ำ 400 ตร.ม. | รื้อทรายล้างรอบสระ 270 ตร.ม. และสั่งวัสดุพื้นยาง EPDM 270 ตร.ม. (เม็ดยางเขียว 1,800 กก. = 72 ถุง) | งานท่อน้ำดีแยก 4 สาย 1 เมนวาล์ว 30 ม. | กระเบื้องผนัง Duragres 30x60 & RCI ไบเด้น 30x30 | โคมดาวน์ไลท์ CARINI หลอด HITEK 40 จุด | ซ่อมเพดาน Sika",
+    "chatHistory": [],
+    "wbsTasks": [
       {
-        id: "act-lp1",
-        assignee: "ช่างหนุ่ม (สุขาภิบาล)",
-        title: "ทดสอบอัดแรงดันน้ำท่อ 4 หุนห้องน้ำ 1 ป้องกันข้อต่อซึม",
-        quote: "ช่างหนุ่ม อัดเทสน้ำท่อ 4 หุนห้องน้ำ 1 ทิ้งไว้ 4 ชม. เช็คเกจวัดแรงดันอย่าให้ตก",
-        orderedBy: "พี่นัท",
-        deadline: "พรุ่งนี้ 10:00",
-        timestamp: "วันนี้ 15:20",
-        priority: "ด่วนมาก",
-        completed: false
+        "id": "WBS-LM-01",
+        "name": "งานสกัดรื้อกระเบื้องสระ 400 ตร.ม. และรื้อทรายล้าง 270 ตร.ม. พร้อมขนขยะ",
+        "category": "หมวด 1.1",
+        "period": "2026-08-01 – 2026-09-30",
+        "weight": 30,
+        "progress": 70,
+        "status": "กำลังทำ",
+        "assignee": "ช่างตี้ / พัฒน์"
+      },
+      {
+        "id": "WBS-LM-02",
+        "name": "งานเดินท่อน้ำดีแยก 4 สาย เมนวาล์ว 30 ม. และซ่อมเพดาน Sika",
+        "category": "หมวด 1.2",
+        "period": "2026-09-15 – 2026-10-31",
+        "weight": 30,
+        "progress": 30,
+        "status": "กำลังทำ",
+        "assignee": "ช่างระบบ"
+      },
+      {
+        "id": "WBS-LM-03",
+        "name": "งานปูพื้นยางสังเคราะห์ EPDM ทางเดิน 270 ตร.ม. และติดตั้งโคมดาวน์ไลท์",
+        "category": "หมวด 1.3",
+        "period": "2026-11-01 – 2026-12-20",
+        "weight": 40,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "ทีมบลูเคอร์"
       }
     ],
-    defects: [
+    "actionItems": [],
+    "defects": [],
+    "photos": [],
+    "contractors": [
       {
-        id: "df-lp1",
-        title: "ข้อต่อข้องอท่อประปา 4 หุนห้องน้ำ 1 มีซึมเล็กน้อย",
-        location: "ห้องน้ำ 1 โซนทางเดิน",
-        severity: "ปานกลาง",
-        status: "in-progress",
-        reporter: "โฟร์แมนวัฒน์",
-        date: "04 พ.ย. 2569",
-        photoUrl: "https://images.unsplash.com/photo-1584467735871-8e85353a8413?auto=format&fit=crop&w=600&q=80"
+        "name": "ช่างตี้ (วุฒิธินันต์ สมชอบ)",
+        "role": "งานรื้อ+ฉาบสระว่ายน้ำ 400 ตร.ม. (120,000) + รื้อทรายล้าง 270 ตร.ม. (18,900)",
+        "contact": "กสิกรไทย 0258369939",
+        "milestones": "งวด 1: 10,000 บ. / งวด 2: 20,000 บ.",
+        "amount": "138,900 บาท"
+      },
+      {
+        "name": "พัฒน์",
+        "role": "ขนขยะ 2 เที่ยว @ 1,000 บ.",
+        "contact": "พัฒน์บริการขนส่ง",
+        "milestones": "จ่ายครบแล้ว 2,000 บ.",
+        "amount": "2,000 บาท"
       }
     ],
-    photos: [
+    "materials": [
       {
-        id: "p-lp1",
-        caption: "เดินแนวท่อประปา Rough-In 4 หุนแยก 4 สายตามผัง Version 3 แนบติดผนังเรียบร้อย",
-        foreman: "โฟร์แมนวัฒน์",
-        timestamp: "04 พ.ย. 2569 · 10:15",
-        manpower: "ช่าง 6 นาย",
-        weather: "แดดจัด",
-        fileName: "IMG_20261104_101500_Lumpini_RoughIn.jpg",
-        savedRelPath: "ศนท ลุมพินี\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\2026-11\\IMG_20261104_101500_Lumpini_RoughIn.jpg",
-        excelSyncStatus: "อัปเดตลง _Site_Progress_Auto.xlsx แล้ว",
-        url: "https://images.unsplash.com/photo-1541888946425-d0fbb1861564?auto=format&fit=crop&w=800&q=80"
+        "item": "เม็ดยางเขียว EPDM 270 ตร.ม.",
+        "spec": "เตรียมจัดส่ง",
+        "qty": "1,800 กก. (72 ถุง)",
+        "unit": "ถุง",
+        "unitPrice": "-",
+        "total": "144,000"
+      },
+      {
+        "item": "กระเบื้องผนัง Duragres 30x60 & RCI 30x30",
+        "spec": "สั่งซื้อแล้ว",
+        "qty": "1 ชุด",
+        "unit": "ชุด",
+        "unitPrice": "-",
+        "total": "45,000"
       }
     ],
-    contractors: [
-      { name: "ช่างตี้ (นายวุฒิธินันต์)", role: "งานรื้อ+ฉาบเพดาน Sika", contact: "02-583-6939", milestones: "เบิกงวด 1 แล้ว", amount: "350,000 บาท" },
-      { name: "ช่างหนุ่ม", role: "งานสุขาภิบาลและประปา Rough-In", contact: "ช่างชำนาญการ", milestones: "เบิกงวดเดินท่อน้ำดี", amount: "260,000 บาท" }
-    ],
-    materials: [
-      { item: "มอร์ตาร์ซ่อมโครงสร้าง Sika MonoTop-610/615", spec: "Polymer modified mortar", qty: "45", unit: "ถุง", unitPrice: "680", total: "30,600" }
-    ],
-    files: [
-      { name: "cost ศนท ลุมพินี.xlsx", size: "46 KB", type: "Cost Sheet" },
-      { name: "คู่มือซ่อมแซมเพดานคอนกรีต_Sika.pdf", size: "2.5 MB", type: "Sika Manual" }
+    "files": [
+      {
+        "name": "cost ศนท ลุมพินี.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "แบบ ปร.4 ปร.5 ลุมพินี.pdf",
+        "size": "เอกสารจริง",
+        "type": "PDF Document"
+      }
     ]
   },
-
   "prj-prachin": {
-    id: "prj-prachin",
-    name: "อบต ปราจีน",
-    fullName: "สนามเด็กเล่น อบต.ท่าตูม บ้านโป่งไผ่ ม.7 จ.ปราจีนบุรี",
-    folderName: "อบต ปราจีน",
-    folderPath: "C:\\Users\\nattc\\OneDrive\\Desktop\\อบต ปราจีน",
-    aiSubfolder: "อบต ปราจีน\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
-    lineGroupId: "c_prachin_line_grp",
-    lineGroupName: "บลูเคอร์ - อบต. ปราจีน",
-    status: "กำลังดำเนินการ",
-    statusBadgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
-    period: "1 ก.ค. 2569 – 30 ต.ค. 2569 (120 วัน)",
-    contractBudget: 2547000,
-    targetCost: 1236866,
-    actualCost: 1050000,
-    expectedProfit: 819209,
-    profitMargin: 39.8,
-    progressActual: 85.0,
-    progressPlanned: 80.0,
-    manpowerToday: 4,
-    unreadCount: 0,
-    lastMessageText: "โฟร์แมน: งานปูพื้นยาง EPDM 20mm สีฟ้าสดใส คืบหน้า 85%",
-    lastMessageTime: "เมื่อวาน",
-    coreSpecs: "พื้นยาง EPDM หนา 20mm (SBR 15mm + EPDM 5mm) + เครื่องเล่นสนาม 5 ชุด",
-    chatHistory: [
-      { sender: "พี่นัท", role: "admin", text: "ช่างปูยาง ใต้ชิงช้ามีรอยต่อสีเหลื่อมกันนิดหน่อย เก็บแต่งรอยต่อให้เนียนก่อนลงน้ำยาเคลือบ", time: "11:10", isBoss: true },
-      { sender: "ช่างปูยาง บลูเคอร์", role: "worker", text: "กำลังเอาเกรียงรีดเก็บรอยต่อสีฟ้า-เหลืองให้เนียนเรียบครับ", time: "11:30" },
-      { sender: "โฟร์แมนวัฒน์", role: "foreman", text: "ส่งรูปงานปูพื้นยาง EPDM หนา 20 มม. สีฟ้าสดใสรอบเครื่องเล่น ช่าง 4 นาย คืบหน้า 85% ครับ", time: "15:45" }
-    ],
-    wbsTasks: [
-      { id: "w-pc1", name: "1. งานปรับพื้นที่ดินและเทคอนกรีตฐานราก หนา 10 ซม.", category: "ฐานราก", period: "1 ก.ค. - 25 ก.ค.", weight: 20, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-pc2", name: "2. ติดตั้งเครื่องเล่นสนามเด็กเล่น 5 ชุด ยึดพุกฐานคอนกรีต", category: "เครื่องเล่นสนาม", period: "26 ก.ค. - 20 ส.ค.", weight: 25, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-pc3", name: "3. ทาน้ำยาไพรเมอร์ PU รองพื้นและลงเม็ดยางดำ SBR หนา 15 มม.", category: "พื้นยาง EPDM", period: "21 ส.ค. - 20 ก.ย.", weight: 25, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-pc4", name: "4. ปูเม็ดยางสี EPDM Top Layer หนา 5 มม. ลวดลายการ์ตูน", category: "พื้นยาง EPDM", period: "21 ก.ย. - 10 ต.ค.", weight: 20, progress: 70, status: "กำลังทำ" },
-      { id: "w-pc5", name: "5. ติดตั้งรั้วตาข่ายกัลวาไนซ์และตรวจรับงานงวดสุดท้าย", category: "ตรวจรับ", period: "11 ต.ค. - 30 ต.ค.", weight: 10, progress: 20, status: "รอตรวจ" }
-    ],
-    actionItems: [
+    "id": "prj-prachin",
+    "name": "อบต ปราจีน",
+    "shortName": "อบต ปราจีน",
+    "fullName": "โครงการก่อสร้างสนามเด็กเล่น บริเวณสนามกีฬา อบต.ท่าตูม บ้านโป่งไผ่ หมู่ที่ 7 อ.ศรีมหาโพธิ จ.ปราจีนบุรี",
+    "folderName": "อบต ปราจีน",
+    "folderPath": "C:\\Users\\nattc\\OneDrive\\Desktop\\อบต ปราจีน",
+    "aiSubfolder": "อบต ปราจีน\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
+    "lineGroupId": null,
+    "lineGroupName": "ยังไม่ได้ผูกกลุ่ม LINE",
+    "status": "เซ็นสัญญาแล้ว (ยังไม่เข้างาน)",
+    "statusLabel": "เซ็นสัญญาแล้ว (ยังไม่เข้างาน)",
+    "statusBadgeClass": "bg-amber-500/20 text-amber-300 border-amber-400/30",
+    "period": "ระยะเวลาก่อสร้าง 120 วัน (งวดที่ 1: 40% ภายใน 75 วัน | งวดที่ 2: 60% ภายใน 45 วัน)",
+    "contractBudget": 2200000,
+    "targetCost": 1236866,
+    "actualCost": 0,
+    "expectedProfit": 819209,
+    "profitMargin": 39.8,
+    "progressActual": 0,
+    "progressPlanned": 0,
+    "manpowerToday": 0,
+    "unreadCount": 0,
+    "lastMessageText": "ยังไม่ได้ผูกกลุ่ม LINE — กดเพื่อดูวิธีเชิญบอท @395avvfu",
+    "lastMessageTime": "",
+    "coreSpecs": "1. งานโครงสร้างลาน ค.ส.ล. 630 ตร.ม. 12 รายการ (แบ็คโฮ 2 วัน, ลูกรังบดอัดแน่น 189+10.1 ลบ.ม., ทรายถม 31.5 ลบ.ม., ไม้แบบ 21.9 ตร.ม., เหล็กเดือย RB15 140.08 กก., ตะแกรง Wire Mesh 4 มม. 630 ตร.ม., คอนกรีต 240 ksc 94.5 ลบ.ม., ขัดหยาบและตัดรอยต่อหยอดยาง 101 ม., ป้ายโครงการ) 2. พื้นยางสังเคราะห์ EPDM หนา 20 มม. (SBR 15 มม. + EPDM 5 มม.) พื้นที่ 630 ตร.ม.",
+    "chatHistory": [],
+    "wbsTasks": [
       {
-        id: "act-pc1",
-        assignee: "ช่างปูยางบลูเคอร์ ชุดที่ 1",
-        title: "เก็บขอบรอยต่อสี EPDM ใต้ชิงช้าให้เรียบเสมอกัน",
-        quote: "ช่างปูยาง ใต้ชิงช้ามีรอยต่อสีเหลื่อมกันนิดหน่อย เก็บแต่งรอยต่อให้เนียนก่อนลงน้ำยาเคลือบ",
-        orderedBy: "พี่นัท",
-        deadline: "พรุ่งนี้ 12:00",
-        timestamp: "วันนี้ 11:10",
-        priority: "ปกติ",
-        completed: false
+        "id": "WBS-PC-01",
+        "name": "งานปรับเกลี่ยพื้นที่เดิมด้วยรถแบคโฮ 2 วัน",
+        "category": "หมวด 1.1",
+        "period": "2026-09-01 – 2026-09-10",
+        "weight": 10,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "ช่างโครงสร้าง"
+      },
+      {
+        "id": "WBS-PC-02",
+        "name": "งานลูกรังถมบดอัดแน่น 199.1 ลบ.ม. และทรายถม 31.5 ลบ.ม.",
+        "category": "หมวด 1.2",
+        "period": "2026-09-11 – 2026-09-30",
+        "weight": 20,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "ช่างโครงสร้าง"
+      },
+      {
+        "id": "WBS-PC-03",
+        "name": "งานตั้งไม้แบบ ผูกเหล็กเดือย RB15 และวาง Wire Mesh 4 มม. 630 ตร.ม.",
+        "category": "หมวด 1.3",
+        "period": "2026-10-01 – 2026-10-20",
+        "weight": 20,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "ช่างโครงสร้าง"
+      },
+      {
+        "id": "WBS-PC-04",
+        "name": "งานเทคอนกรีต 240 ksc 94.5 ลบ.ม. ขัดหยาบ และตัดรอยต่อหยอดยางมะตอย 101 ม.",
+        "category": "หมวด 1.4",
+        "period": "2026-10-21 – 2026-11-10",
+        "weight": 25,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "ช่างคอนกรีต"
+      },
+      {
+        "id": "WBS-PC-05",
+        "name": "งานปูพื้นยางสังเคราะห์ EPDM หนา 20 มม. (SBR 15 มม. + EPDM 5 มม.) 630 ตร.ม.",
+        "category": "หมวด 2.1",
+        "period": "2026-11-11 – 2026-12-25",
+        "weight": 25,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "ทีมบลูเคอร์"
       }
     ],
-    defects: [
+    "actionItems": [],
+    "defects": [],
+    "photos": [],
+    "contractors": [],
+    "materials": [],
+    "files": [
       {
-        id: "df-pc1",
-        title: "รอยต่อสีพื้นยาง EPDM โซนชิงช้ามีรอยเหลื่อมเล็กน้อย",
-        location: "โซนชิงช้าเด็กเล็ก",
-        severity: "เล็กน้อย",
-        status: "pending",
-        reporter: "โฟร์แมนวัฒน์",
-        date: "04 พ.ย. 2569",
-        photoUrl: "https://images.unsplash.com/photo-1541888946425-d0fbb1861564?auto=format&fit=crop&w=600&q=80"
-      }
-    ],
-    photos: [
+        "name": "ประมาณการต้นทุน_สนามเด็กเล่น_อบต_ท่าตูม_V3_คำนวณแยกVATสมบูรณ์.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
       {
-        id: "p-pc1",
-        caption: "ปูเม็ดยางสี EPDM หนา 5 มม. สีฟ้าสดใสรอบเครื่องเล่นสนามเสร็จแล้ว 70%",
-        foreman: "โฟร์แมนวัฒน์",
-        timestamp: "03 พ.ย. 2569 · 15:45",
-        manpower: "ช่าง 4 นาย",
-        weather: "แดดจัด ลมเย็น",
-        fileName: "IMG_20261103_154500_Prachin_EPDM20mm.jpg",
-        savedRelPath: "อบต ปราจีน\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\2026-11\\IMG_20261103_154500_Prachin_EPDM20mm.jpg",
-        excelSyncStatus: "อัปเดตลง _Site_Progress_Auto.xlsx แล้ว",
-        url: "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80"
+        "name": "ประมาณการต้นทุน_สนามเด็กเล่น_อบต_ท่าตูม_V2.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
+      {
+        "name": "TOR_อบต_ท่าตูม.pdf",
+        "size": "เอกสารจริง",
+        "type": "PDF Document"
       }
-    ],
-    contractors: [
-      { name: "ทีมช่างปูยางสังเคราะห์ บลูเคอร์ชุดที่ 1", role: "งานปูพื้นยาง EPDM หนา 20mm", contact: "ทีมช่างประจำบริษัท", milestones: "เบิกงวดปูชั้น SBR แล้ว", amount: "420,000 บาท" }
-    ],
-    materials: [
-      { item: "พื้นยาง EPDM หนา 20 มม.", spec: "SBR 15mm + EPDM 5mm ซับแรงกระแทก EN1177", qty: "480", unit: "ตร.ม.", unitPrice: "1,250", total: "600,000" }
-    ],
-    files: [
-      { name: "ประมาณการต้นทุน_สนามเด็กเล่น_อบต_ท่าตูม_V3_คำนวณแยกVATสมบูรณ์.xlsx", size: "78 KB", type: "Master Cost Model" }
     ]
   },
-
   "prj-maehongson": {
-    id: "prj-maehongson",
-    name: "พี่บอม แม่ฮ่องสอน",
-    fullName: "ลู่วิ่งและสนามกีฬายางสังเคราะห์ แม่ฮ่องสอน (พี่บอม)",
-    folderName: "พี่บอม แม่ฮ่องสอน",
-    folderPath: "C:\\Users\\nattc\\OneDrive\\Desktop\\พี่บอม แม่ฮ่องสอน",
-    aiSubfolder: "พี่บอม แม่ฮ่องสอน\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
-    lineGroupId: "c_maehongson_line_grp",
-    lineGroupName: "บลูเคอร์ - ลู่วิ่งแม่ฮ่องสอน พี่บอม",
-    status: "แผนงานประมูล/เริ่มงาน",
-    statusBadgeClass: "bg-sky-500/20 text-sky-300 border-sky-400/30",
-    period: "15 ส.ค. 2569 – 15 มี.ค. 2570 (210 วัน)",
-    contractBudget: 13684000,
-    targetCost: 9033200,
-    actualCost: 1540000,
-    expectedProfit: 4650800,
-    profitMargin: 34.0,
-    progressActual: 25.0,
-    progressPlanned: 25.0,
-    manpowerToday: 2,
-    unreadCount: 0,
-    lastMessageText: "พี่บอม: นัดช่างรังวัด อบจ. ตรวจค่าระดับโค้งใต้แล้วครับ",
-    lastMessageTime: "เมื่อวาน",
-    coreSpecs: "ลู่วิ่งยางสังเคราะห์ 13mm Red Encapsulated Sandwich 6,800 ตร.ม.",
-    chatHistory: [
-      { sender: "พี่นัท", role: "admin", text: "พี่บอม รบกวนนัดช่างรังวัด อบจ. เช็คระดับโค้งใต้สัปดาห์นี้เลยนะ จะได้ส่งใบขออนุมัติวัสดุ", time: "09:30", isBoss: true },
-      { sender: "พี่บอม", role: "partner", text: "ได้ครับพี่นัท นัดช่าง อบจ. วันพฤหัส 10 โมงเช้าครับ", time: "09:45" },
-      { sender: "ทีมพี่บอม", role: "worker", text: "ส่งรูปการสำรวจระดับความลาดชันลู่วิ่ง 6,800 ตร.ม. อากาศเปิดแล้วครับ", time: "14:00" }
-    ],
-    wbsTasks: [
-      { id: "w-mh1", name: "1. สำรวจหน้างานและถอดแบบเทียบเคียง Model 1 (สนาม 11 คน + ลู่วิ่ง 6 เลน)", category: "สำรวจและออกแบบ", period: "15 ส.ค. - 10 ก.ย.", weight: 10, progress: 100, status: "เสร็จสิ้น" },
-      { id: "w-mh2", name: "2. ตรวจสอบระดับความลาดชันของพื้นแอสฟัลต์คอนกรีตเดิม", category: "เตรียมพื้นผิว", period: "11 ก.ย. - 30 ก.ย.", weight: 15, progress: 70, status: "กำลังทำ" },
-      { id: "w-mh3", name: "3. เตรียมสั่งนำเข้าเม็ดยาง EPDM แดง และกาว Sandwich System", category: "จัดซื้อวัสดุ", period: "1 ต.ค. - 31 ต.ค.", weight: 20, progress: 40, status: "สั่งซื้อ" },
-      { id: "w-mh4", name: "4. ปรับระดับผิวแอสฟัลต์และลงไพรเมอร์ PU ยึดเกาะสูง", category: "งานลู่วิ่ง", period: "1 พ.ย. - 15 ธ.ค.", weight: 20, progress: 0, status: "รอหน้างาน" },
-      { id: "w-mh5", name: "5. ปูยางสังเคราะห์ระบบ Sandwich 13 มม. พื้นที่ 6,800 ตร.ม.", category: "งานลู่วิ่ง", period: "16 ธ.ค. - 15 ก.พ.", weight: 25, progress: 0, status: "รอหน้างาน" }
-    ],
-    actionItems: [
+    "id": "prj-maehongson",
+    "name": "พี่บอม แม่ฮ่องสอน",
+    "shortName": "พี่บอม แม่ฮ่องสอน",
+    "fullName": "โครงการก่อสร้างสนามฟุตบอลและลู่วิ่งยางสังเคราะห์ ระบบ Encapsulated Sandwich หนา 13 มม. (IAAF) จ.แม่ฮ่องสอน",
+    "folderName": "พี่บอม แม่ฮ่องสอน",
+    "folderPath": "C:\\Users\\nattc\\OneDrive\\Desktop\\พี่บอม แม่ฮ่องสอน",
+    "aiSubfolder": "พี่บอม แม่ฮ่องสอน\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\",
+    "lineGroupId": null,
+    "lineGroupName": "ยังไม่ได้ผูกกลุ่ม LINE",
+    "status": "วางสเปกอยู่ (ยังไม่เซ็นสัญญา)",
+    "statusLabel": "วางสเปกอยู่ (ยังไม่เซ็นสัญญา)",
+    "statusBadgeClass": "bg-purple-500/20 text-purple-300 border-purple-400/30",
+    "period": "เปรียบเทียบโมเดล BOQ 6 รูปแบบ และใบเสนอราคาวัสดุนำเข้า CIF BKK",
+    "contractBudget": 13684000,
+    "targetCost": 9033200,
+    "actualCost": 0,
+    "expectedProfit": 4650800,
+    "profitMargin": 34,
+    "progressActual": 0,
+    "progressPlanned": 0,
+    "manpowerToday": 0,
+    "unreadCount": 0,
+    "lastMessageText": "ยังไม่ได้ผูกกลุ่ม LINE — กดเพื่อดูวิธีเชิญบอท @395avvfu",
+    "lastMessageTime": "",
+    "coreSpecs": "โมเดล BOQ 6 ทางเลือก (Model 1 สนามฟุตบอล 11 คน 7,140 ตร.ม. + ลู่วิ่ง 6 เลน 3,200 ตร.ม. ยางสังเคราะห์ Sandwich หนา 13 มม. [9mm SBR + 4mm Spray-coat] + รางระบายน้ำ U-Ditch 400 ม.) | ใบเสนอราคาวัสดุนำเข้า 6,800 ตร.ม. CIF BKK 83,491.10 USD (PU Binder 9006A 11,900 กก., SBR 51,000 กก., Red Full PU 4:1 20,400 กก., Red EPDM 6,800 กก.)",
+    "chatHistory": [],
+    "wbsTasks": [
       {
-        id: "act-mh1",
-        assignee: "พี่บอม",
-        title: "ประสานงานช่างรังวัด อบจ. เพื่อร่วมสอบทานค่าระดับแอสฟัลต์โค้งใต้",
-        quote: "พี่บอม รบกวนนัดช่างรังวัด อบจ. เช็คระดับโค้งใต้สัปดาห์นี้เลยนะ จะได้ส่งใบขออนุมัติวัสดุ",
-        orderedBy: "พี่นัท",
-        deadline: "ศุกร์นี้ 16:00",
-        timestamp: "เมื่อวานนี้ 09:30",
-        priority: "ด่วน",
-        completed: false
+        "id": "WBS-MHS-01",
+        "name": "งานปรับระดับพื้นทางและคูระบายน้ำคอนกรีตรูปตัวยู (U-Ditch) 400 ม.",
+        "category": "หมวด 1.1",
+        "period": "2026-10-01 – 2026-11-30",
+        "weight": 25,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "พี่บอม / ทีมช่าง"
+      },
+      {
+        "id": "WBS-MHS-02",
+        "name": "งานชั้นพื้นทางแอสฟัลต์คอนกรีตหนา 5 ซม. 3,200 ตร.ม.",
+        "category": "หมวด 1.2",
+        "period": "2026-12-01 – 2027-01-15",
+        "weight": 25,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "ช่างแอสฟัลต์"
+      },
+      {
+        "id": "WBS-MHS-03",
+        "name": "นำเข้าวัสดุยางสังเคราะห์ Sandwich System CIF BKK 83,491 USD",
+        "category": "หมวด 2.1",
+        "period": "2026-11-01 – 2027-01-31",
+        "weight": 20,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "บลูเคอร์ นำเข้า"
+      },
+      {
+        "id": "WBS-MHS-04",
+        "name": "งานติดตั้งชั้นยางดำ SBR 9 มม. และพ่น Spray-coat Red PU + EPDM 4 มม.",
+        "category": "หมวด 2.2",
+        "period": "2027-02-01 – 2027-04-15",
+        "weight": 30,
+        "progress": 0,
+        "status": "รอดำเนินการ",
+        "assignee": "ทีมบลูเคอร์"
       }
     ],
-    defects: [
+    "actionItems": [],
+    "defects": [],
+    "photos": [],
+    "contractors": [],
+    "materials": [],
+    "files": [
       {
-        id: "df-mh1",
-        title: "ระดับความลาดชันพื้นแอสฟัลต์เดิมโค้งทิศใต้เกินเกณฑ์ 0.2%",
-        location: "ลู่วิ่งโค้งทิศใต้ สเตชั่น 200m",
-        severity: "ปานกลาง",
-        status: "in-progress",
-        reporter: "ทีมสำรวจพี่บอม",
-        date: "02 พ.ย. 2569",
-        photoUrl: "https://images.unsplash.com/photo-1541888946425-d0fbb1861564?auto=format&fit=crop&w=600&q=80"
-      }
-    ],
-    photos: [
+        "name": "BOQ_MaeHongSon_Models.xlsx",
+        "size": "เอกสารจริง",
+        "type": "Excel Workbook"
+      },
       {
-        id: "p-mh1",
-        caption: "ถ่ายระดับความลาดชันลู่วิ่ง 6,800 ตร.ม. ร่วมกับทีมงานพี่บอม",
-        foreman: "ทีมพี่บอม",
-        timestamp: "02 พ.ย. 2569 · 14:00",
-        manpower: "ช่าง 2 นาย",
-        weather: "หมอกหนา แดดร่ม",
-        fileName: "IMG_20261102_140000_MaeHongSon_Track.jpg",
-        savedRelPath: "พี่บอม แม่ฮ่องสอน\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\รูปหน้างาน\\2026-11\\IMG_20261102_140000_MaeHongSon_Track.jpg",
-        excelSyncStatus: "อัปเดตลง _Site_Progress_Auto.xlsx แล้ว",
-        url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80"
+        "name": "Quotation_CIF_BKK_Rubber_Sandwich.pdf",
+        "size": "เอกสารจริง",
+        "type": "PDF Document"
+      },
+      {
+        "name": "แบบมาตรฐานลู่วิ่งและสนามฟุตบอล.dwg",
+        "size": "เอกสารจริง",
+        "type": "File"
       }
-    ],
-    contractors: [
-      { name: "ทีมพี่บอม (ตัวแทนภาคเหนือ)", role: "ประสานงานหน้างานและควบคุมเครื่องจักร", contact: "โทรประสานตรง", milestones: "เบิกตามงวดสำรวจ", amount: "650,000 บาท" }
-    ],
-    materials: [
-      { item: "ลู่วิ่งยางสังเคราะห์ Sandwich System 13mm", spec: "Red Encapsulated Sandwich ผ่านมาตรฐาน IAAF", qty: "6,800", unit: "ตร.ม.", unitPrice: "1,150", total: "7,820,000" }
-    ],
-    files: [
-      { name: "BOQ_MaeHongSon_Models.xlsx", size: "64 KB", type: "Model Simulation BOQ" },
-      { name: "Copy of 6800sqm13mm Red Encapsulated sandwich quotation(1).xls", size: "95 KB", type: "Quotation Red Sandwich" }
     ]
   }
 };
@@ -797,7 +1216,7 @@ document.addEventListener("DOMContentLoaded", async () => {
  */
 function normalizeProjectId(rawId) {
   if (!rawId) return null;
-  const s = String(rawId).toLowerCase().trim();
+  const s = String(rawId).toLowerCase().trim().replace(/[-_]/g, "");
   const canonicalList = [
     "prj-chatuchak",
     "prj-bangna",
@@ -812,12 +1231,12 @@ function normalizeProjectId(rawId) {
   }
   if (s.includes("jatu") || s.includes("chatuchak") || s.includes("จตุจักร")) return "prj-chatuchak";
   if (s.includes("bangna") || s.includes("บางนา")) return "prj-bangna";
-  if (s.includes("bangkae") || s.includes("บางแค")) return "prj-bangkae";
+  if (s.includes("bangkae") || s.includes("bangkhae") || s.includes("บางแค")) return "prj-bangkae";
   if (s.includes("sapan") || s.includes("saphan") || s.includes("สะพานสูง")) return "prj-saphansung";
-  if (s.includes("lumpini") || s.includes("ลุมพินี")) return "prj-lumpini";
+  if (s.includes("lumpi") || s.includes("lumphi") || s.includes("ลุมพินี")) return "prj-lumpini";
   if (s.includes("prachin") || s.includes("ปราจีน")) return "prj-prachin";
-  if (s.includes("maehongson") || s.includes("แม่ฮ่องสอน")) return "prj-maehongson";
-  if (s.startsWith("prj-")) return s;
+  if (s.includes("maehong") || s.includes("แม่ฮ่องสอน")) return "prj-maehongson";
+  if (s.startsWith("prj")) return `prj-${s.replace(/^prj/, '')}`;
   return `prj-${s}`;
 }
 
@@ -839,25 +1258,44 @@ function mergeBackendBootstrap(data) {
     // If project already exists in appState.projects, merge carefully
     const existing = appState.projects[canonicalId];
     if (existing) {
-      if (rawItem.name && typeof rawItem.name === "string" && rawItem.name.trim()) existing.name = rawItem.name;
+      const canonicalShort = CANONICAL_SHORT_NAMES[canonicalId];
+      if (rawItem.name && typeof rawItem.name === "string" && rawItem.name.trim()) {
+        const rawName = rawItem.name.trim();
+        if (canonicalShort) {
+          existing.name = canonicalShort;
+          if (rawName !== canonicalShort && (!existing.fullName || rawName.length > existing.fullName.length)) {
+            existing.fullName = rawName;
+          }
+        } else if (existing.name && rawName.length > existing.name.length) {
+          existing.fullName = rawName;
+        } else {
+          existing.name = rawName;
+        }
+      } else if (canonicalShort) {
+        existing.name = canonicalShort;
+      }
+
       if (rawItem.fullName || rawItem.full_name) existing.fullName = rawItem.fullName || rawItem.full_name;
-      if (rawItem.status && typeof rawItem.status === "string" && rawItem.status.trim()) existing.status = rawItem.status;
+      if (rawItem.status && typeof rawItem.status === "string" && rawItem.status.trim()) {
+        existing.status = translateBackendStatus(rawItem.status, rawItem.statusLabel || rawItem.status_label);
+        existing.statusBadgeClass = getStatusBadgeClass(existing.status);
+      }
       if (rawItem.period && typeof rawItem.period === "string" && rawItem.period.trim()) existing.period = rawItem.period;
       
       const budget = Number(rawItem.contractBudget ?? rawItem.contract_budget ?? rawItem.budget);
-      if (!isNaN(budget) && budget > 0) existing.contractBudget = budget;
+      if (!isNaN(budget) && budget >= 0) existing.contractBudget = budget;
       
       const targetCost = Number(rawItem.targetCost ?? rawItem.target_cost);
-      if (!isNaN(targetCost) && targetCost > 0) existing.targetCost = targetCost;
+      if (!isNaN(targetCost) && targetCost >= 0) existing.targetCost = targetCost;
       
       const actualCost = Number(rawItem.actualCost ?? rawItem.actual_cost);
-      if (!isNaN(actualCost) && actualCost > 0) existing.actualCost = actualCost;
+      if (!isNaN(actualCost) && actualCost >= 0) existing.actualCost = actualCost;
       
       const expectedProfit = Number(rawItem.expectedProfit ?? rawItem.expected_profit);
-      if (!isNaN(expectedProfit) && expectedProfit > 0) existing.expectedProfit = expectedProfit;
+      if (!isNaN(expectedProfit)) existing.expectedProfit = expectedProfit;
 
       const profitMargin = Number(rawItem.profitMargin ?? rawItem.profit_margin);
-      if (!isNaN(profitMargin) && profitMargin > 0) existing.profitMargin = profitMargin;
+      if (!isNaN(profitMargin)) existing.profitMargin = profitMargin;
 
       const progressActual = Number(rawItem.progressActual ?? rawItem.actual_progress ?? rawItem.progress);
       if (!isNaN(progressActual)) existing.progressActual = progressActual;
@@ -865,7 +1303,7 @@ function mergeBackendBootstrap(data) {
       const progressPlanned = Number(rawItem.progressPlanned ?? rawItem.planned_progress);
       if (!isNaN(progressPlanned)) existing.progressPlanned = progressPlanned;
 
-      const manpower = Number(rawItem.manpowerToday ?? rawItem.manpower_today);
+      const manpower = Number(rawItem.manpowerToday ?? rawItem.manpower_today ?? rawItem.daily_workers);
       if (!isNaN(manpower)) existing.manpowerToday = manpower;
 
       const specs = rawItem.coreSpecs || rawItem.specs_summary || rawItem.core_specs || rawItem.specs;
@@ -873,8 +1311,8 @@ function mergeBackendBootstrap(data) {
 
       if (rawItem.folderName || rawItem.folder_name) existing.folderName = rawItem.folderName || rawItem.folder_name;
       if (rawItem.folderPath || rawItem.folder_path) existing.folderPath = rawItem.folderPath || rawItem.folder_path;
-      if (rawItem.lineGroupId || rawItem.line_group_id) existing.lineGroupId = rawItem.lineGroupId || rawItem.line_group_id;
-      if (rawItem.lineGroupName || rawItem.line_group_name) existing.lineGroupName = rawItem.lineGroupName || rawItem.line_group_name;
+      existing.lineGroupId = rawItem.lineGroupId || rawItem.line_group_id || null;
+      existing.lineGroupName = rawItem.lineGroupName || rawItem.line_group_name || (existing.lineGroupId ? "กลุ่ม LINE โครงการ" : "ยังไม่ได้ผูกกลุ่ม LINE");
 
       // Preserve rich arrays or normalize backend child items
       if (Array.isArray(rawItem.wbsTasks) && rawItem.wbsTasks.length > 0) {
@@ -889,7 +1327,7 @@ function mergeBackendBootstrap(data) {
           assignee: t.assignee || 'ช่างหน้างาน'
         }));
       }
-      if (Array.isArray(rawItem.actionItems) && rawItem.actionItems.length > 0) {
+      if (Array.isArray(rawItem.actionItems)) {
         existing.actionItems = rawItem.actionItems.map((a, idx) => ({
           id: a.id || `act-${idx + 1}`,
           assignee: a.assignee || 'ช่างหน้างาน',
@@ -902,7 +1340,7 @@ function mergeBackendBootstrap(data) {
           completed: a.completed !== undefined ? a.completed : (a.status === 'DONE' || a.status === 'COMPLETED')
         }));
       }
-      if (Array.isArray(rawItem.defects) && rawItem.defects.length > 0) {
+      if (Array.isArray(rawItem.defects)) {
         existing.defects = rawItem.defects.map((d, idx) => ({
           id: d.id || `df-${idx + 1}`,
           title: d.title || d.description || 'จุดบกพร่อง',
@@ -914,11 +1352,11 @@ function mergeBackendBootstrap(data) {
           photoUrl: d.photoUrl || d.photo_url || ''
         }));
       }
-      if (Array.isArray(rawItem.photos) && rawItem.photos.length > 0) existing.photos = rawItem.photos;
+      if (Array.isArray(rawItem.photos)) existing.photos = rawItem.photos;
       if (Array.isArray(rawItem.contractors) && rawItem.contractors.length > 0) existing.contractors = rawItem.contractors;
       if (Array.isArray(rawItem.materials) && rawItem.materials.length > 0) existing.materials = rawItem.materials;
       if (Array.isArray(rawItem.files) && rawItem.files.length > 0) existing.files = rawItem.files;
-      if (Array.isArray(rawItem.chatHistory) && rawItem.chatHistory.length > 0) existing.chatHistory = rawItem.chatHistory;
+      if (Array.isArray(rawItem.chatHistory)) existing.chatHistory = rawItem.chatHistory;
     } else {
       // Newly onboarded project (not in MASTER_PROJECTS)
       const budget = Number(rawItem.contractBudget ?? rawItem.contract_budget ?? rawItem.budget) || 0;
@@ -931,17 +1369,26 @@ function mergeBackendBootstrap(data) {
       const manpower = Number(rawItem.manpowerToday ?? rawItem.manpower_today) || 0;
       const specs = rawItem.coreSpecs || rawItem.specs_summary || rawItem.core_specs || rawItem.specs || "มาตรฐาน มอก. / สเปกบลูเคอร์";
 
+      const canonicalShort = CANONICAL_SHORT_NAMES[canonicalId];
+      const pName = canonicalShort || rawItem.folderName || rawItem.folder_name || rawItem.name || canonicalId;
+      let pFullName = rawItem.fullName || rawItem.full_name || rawItem.name || pName;
+      if (canonicalShort && rawItem.name && rawItem.name !== canonicalShort) {
+        pFullName = rawItem.name;
+      }
+      const rawStatus = translateBackendStatus(rawItem.status || "กำลังดำเนินการ");
+      const badgeClass = rawItem.statusBadgeClass || getStatusBadgeClass(rawStatus);
+
       appState.projects[canonicalId] = {
         id: canonicalId,
-        name: rawItem.name || canonicalId,
-        fullName: rawItem.fullName || rawItem.full_name || rawItem.name || canonicalId,
+        name: pName,
+        fullName: pFullName,
         folderName: rawItem.folderName || rawItem.folder_name || rawItem.name || canonicalId,
         folderPath: rawItem.folderPath || rawItem.folder_path || `C:\\Users\\nattc\\OneDrive\\Desktop\\${rawItem.folderName || rawItem.name}`,
         aiSubfolder: `${rawItem.folderName || rawItem.name}\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\`,
         lineGroupId: rawItem.lineGroupId || rawItem.line_group_id || `c_${canonicalId}_line_grp`,
-        lineGroupName: rawItem.lineGroupName || rawItem.line_group_name || `บลูเคอร์ - ${rawItem.name || canonicalId}`,
-        status: rawItem.status || "กำลังดำเนินการ",
-        statusBadgeClass: rawItem.statusBadgeClass || "bg-sky-500/20 text-sky-300 border-sky-400/30",
+        lineGroupName: rawItem.lineGroupName || rawItem.line_group_name || `บลูเคอร์ - ${pName}`,
+        status: rawStatus,
+        statusBadgeClass: badgeClass,
         period: rawItem.period || "ตามสัญญาจ้าง",
         contractBudget: budget,
         targetCost: targetCost,
@@ -971,6 +1418,23 @@ function mergeBackendBootstrap(data) {
   for (const k of Object.keys(appState.projects)) {
     if (/^\d+$/.test(k)) {
       delete appState.projects[k];
+    }
+  }
+
+  // Final pass: ALWAYS enforce canonical short names and translated statuses across all projects
+  for (const [pId, target] of Object.entries(appState.projects)) {
+    const canonId = normalizeProjectId(pId);
+    const shortName = CANONICAL_SHORT_NAMES[canonId] || target.folderName || target.name || pId;
+    if (target.name && target.name !== shortName && target.name.length > shortName.length) {
+      if (!target.fullName || target.fullName === target.name) {
+        target.fullName = target.name;
+      }
+    }
+    target.name = shortName;
+
+    if (target.status) {
+      target.status = translateBackendStatus(target.status);
+      target.statusBadgeClass = getStatusBadgeClass(target.status);
     }
   }
 
@@ -1133,6 +1597,23 @@ function renderPortfolioKpis(projectsList = Object.values(appState.projects)) {
   const elTotalWorkers = document.getElementById("portfolioTotalWorkers");
   if (elTotalWorkers) elTotalWorkers.innerText = totalWorkers;
 
+  const elWorkersUnit = document.getElementById("portfolioWorkersUnit");
+  if (elWorkersUnit) {
+    elWorkersUnit.innerText = totalWorkers > 0 ? `นาย (${totalProjects} ไซต์)` : "นาย (รอรายงานจาก LINE)";
+  }
+
+  const unreadBadge = document.getElementById("headerUnreadBadge");
+  if (unreadBadge) {
+    const totalUnread = projectsList.reduce((acc, p) => acc + (p.unreadCount || 0), 0);
+    if (totalUnread > 0) {
+      unreadBadge.innerText = totalUnread;
+      unreadBadge.classList.remove("hidden");
+    } else {
+      unreadBadge.innerText = "0";
+      unreadBadge.classList.add("hidden");
+    }
+  }
+
   return { totalProjects, totalContractValue, totalTargetCost, totalActualCost, avgProgress, avgPlanned, diffProgress, totalOpenDefects, totalInProgressDefects, totalResolvedDefects };
 }
 
@@ -1153,7 +1634,7 @@ function renderPortfolioCharts(projectsList, openDefects, inProgressDefects, res
   if (barCtx) {
     if (appState.charts.bar) appState.charts.bar.destroy();
 
-    const labels = projectsList.map(p => p.name || p.id);
+    const labels = projectsList.map(p => CANONICAL_SHORT_NAMES[p.id] || p.name || p.id);
     const plannedData = projectsList.map(p => Number(p.progressPlanned) || 0);
     const actualData = projectsList.map(p => Number(p.progressActual) || 0);
 
@@ -1201,7 +1682,10 @@ function renderPortfolioCharts(projectsList, openDefects, inProgressDefects, res
           },
           x: {
             ticks: {
-              font: { family: "Prompt", size: 11 }
+              font: { family: "Prompt", size: 11 },
+              maxRotation: 0,
+              minRotation: 0,
+              autoSkip: false
             },
             grid: { display: false }
           }
@@ -1272,34 +1756,43 @@ function renderPortfolioMatrixTable(projectsInput = "") {
         ? `<span class="text-[10px] text-emerald-600 font-medium">+${diff}%</span>` 
         : `<span class="text-[10px] text-rose-500 font-medium">${diff}%</span>`;
 
+      const lineBadge = p.lineGroupId 
+        ? `<span class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 whitespace-nowrap"><i class="fa-brands fa-line text-emerald-500 flex-shrink-0"></i><span>ผูกแล้ว (${escapeHtml(p.lineGroupId)})</span></span>`
+        : `<span class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 whitespace-nowrap"><i class="fa-solid fa-clock text-amber-500 text-[10px] flex-shrink-0"></i><span>รอเชิญบอทเข้ากลุ่ม LINE</span></span>`;
+
+      const budgetDisplay = p.contractBudget > 0 
+        ? formatCurrency(p.contractBudget) 
+        : `<span class="text-xs text-slate-500 font-normal">รอระบุในไฟล์ Cost</span>`;
+
+      const targetCostDisplay = p.targetCost > 0 
+        ? formatCurrency(p.targetCost) 
+        : `<span class="text-xs text-slate-500 font-normal">รอระบุในไฟล์ Cost</span>`;
+
       return `
         <tr class="table-row-hover transition-colors">
-          <td class="py-3 px-4">
-            <div class="font-bold text-slate-900 font-kanit text-sm flex items-center gap-1.5">
-              ${p.name || p.id}
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-normal border ${p.statusBadgeClass || 'bg-slate-100 text-slate-600'}">${p.status || 'ดำเนินการ'}</span>
+          <td class="py-3 px-4 whitespace-nowrap">
+            <div class="font-bold text-slate-900 font-kanit text-sm flex items-center gap-1.5 whitespace-nowrap">
+              <span>${escapeHtml(CANONICAL_SHORT_NAMES[p.id] || p.name || p.id)}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-normal border whitespace-nowrap ${p.statusBadgeClass || getStatusBadgeClass(p.status)}">${escapeHtml(translateBackendStatus(p.status) || 'ดำเนินการ')}</span>
             </div>
-            <div class="text-[11px] text-slate-600 flex items-center gap-1 mt-0.5">
-              <i class="fa-regular fa-folder text-amber-500"></i>
-              <span>${p.folderName || ''}</span>
+            <div class="text-[11px] text-slate-600 flex items-center gap-1 mt-0.5 whitespace-nowrap">
+              <i class="fa-regular fa-folder text-amber-500 flex-shrink-0"></i>
+              <span class="truncate">${escapeHtml(p.folderName || '')}</span>
             </div>
+          </td>
+          <td class="py-3 px-3 whitespace-nowrap">
+            ${lineBadge}
           </td>
           <td class="py-3 px-3">
-            <span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-              <i class="fa-brands fa-line text-emerald-500"></i>
-              ผูกแล้ว (${p.lineGroupId || p.id})
-            </span>
+            <span class="text-xs text-slate-700 font-medium max-w-[260px] whitespace-normal break-words leading-relaxed block" title="${escapeHtml(p.coreSpecs || '')}">${escapeHtml(p.coreSpecs || '-')}</span>
           </td>
-          <td class="py-3 px-3">
-            <span class="text-xs text-slate-700 font-medium max-w-[200px] truncate block" title="${escapeHtml(p.coreSpecs || '')}">${p.coreSpecs || '-'}</span>
+          <td class="py-3 px-3 text-right font-medium text-slate-900 font-kanit whitespace-nowrap">
+            ${budgetDisplay}
           </td>
-          <td class="py-3 px-3 text-right font-medium text-slate-900 font-kanit">
-            ${formatCurrency(p.contractBudget)}
+          <td class="py-3 px-3 text-right font-medium text-slate-600 font-kanit whitespace-nowrap">
+            ${targetCostDisplay}
           </td>
-          <td class="py-3 px-3 text-right font-medium text-slate-600 font-kanit">
-            ${formatCurrency(p.targetCost)}
-          </td>
-          <td class="py-3 px-4">
+          <td class="py-3 px-4 min-w-[160px]">
             <div class="flex items-center justify-between text-[11px] mb-1">
               <span class="font-bold font-kanit text-slate-800">${progressActual}%</span>
               <span>${diffBadge} <span class="text-slate-600">แผน ${progressPlanned}%</span></span>
@@ -1308,16 +1801,16 @@ function renderPortfolioMatrixTable(projectsInput = "") {
               <div class="bg-sky-500 h-1.5 rounded-full" style="width: ${Math.min(100, Math.max(0, progressActual))}%"></div>
             </div>
           </td>
-          <td class="py-3 px-3 text-center">
+          <td class="py-3 px-3 text-center whitespace-nowrap">
             ${defectsCount > 0 
               ? `<span class="px-2 py-0.5 bg-rose-100 text-rose-700 font-bold rounded-full text-[11px]">${defectsCount}</span>` 
               : `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold rounded-full text-[11px]">0</span>`
             }
           </td>
-          <td class="py-3 px-4 text-center">
-            <button onclick="switchProject('${p.id}')" class="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold rounded-xl border border-sky-200 transition-all font-kanit flex items-center gap-1 mx-auto">
+          <td class="py-3 px-4 text-center whitespace-nowrap">
+            <button onclick="switchProject('${p.id}')" class="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold rounded-xl border border-sky-200 transition-all font-kanit flex items-center gap-1 mx-auto whitespace-nowrap flex-shrink-0">
               <span>ดูรายละเอียด</span>
-              <i class="fa-solid fa-arrow-right text-[10px]"></i>
+              <i class="fa-solid fa-arrow-right text-[10px] flex-shrink-0"></i>
             </button>
           </td>
         </tr>
@@ -1343,38 +1836,49 @@ function renderPortfolioMatrixTable(projectsInput = "") {
         const diffText = diff >= 0 ? `+${diff}%` : `${diff}%`;
         const diffColor = diff >= 0 ? 'text-emerald-600' : 'text-rose-500';
 
+        const lineBadgeMobile = p.lineGroupId 
+          ? `<span class="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200"><i class="fa-brands fa-line text-emerald-500"></i> ผูกกลุ่ม LINE แล้ว</span>`
+          : `<span class="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200"><i class="fa-solid fa-clock text-amber-500 text-[9px]"></i> รอเชิญบอทเข้ากลุ่ม LINE</span>`;
+
+        const budgetMobile = p.contractBudget > 0 ? `${formatCurrency(p.contractBudget)} บ.` : 'รอระบุในไฟล์ Cost';
+        const targetCostMobile = p.targetCost > 0 ? `${formatCurrency(p.targetCost)} บ.` : 'รอระบุในไฟล์ Cost';
+        const manpowerMobile = p.manpowerToday > 0 ? `${p.manpowerToday} นาย` : '0 (รอ LINE)';
+
         return `
           <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90 space-y-3">
             <!-- Top Row: Name, Folder, Status -->
             <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
+              <div class="min-w-0 flex-1">
                 <h4 class="font-bold text-slate-900 font-kanit text-sm truncate flex items-center gap-1.5">
-                  ${p.name || p.id}
+                  ${escapeHtml(CANONICAL_SHORT_NAMES[p.id] || p.name || p.id)}
                 </h4>
-                <div class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                <div class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 truncate">
                   <i class="fa-regular fa-folder text-amber-500 flex-shrink-0"></i>
-                  <span class="truncate">📁 ${p.folderName || p.name}</span>
+                  <span class="truncate">📁 ${escapeHtml(p.folderName || p.name || '')}</span>
+                </div>
+                <div class="mt-1">
+                  ${lineBadgeMobile}
                 </div>
               </div>
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-medium border flex-shrink-0 ${p.statusBadgeClass || 'bg-slate-100 text-slate-600'}">
-                ${p.status || 'ดำเนินการ'}
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-medium border whitespace-nowrap flex-shrink-0 ${p.statusBadgeClass || getStatusBadgeClass(p.status)}">
+                ${escapeHtml(translateBackendStatus(p.status) || 'ดำเนินการ')}
               </span>
             </div>
 
             <!-- Core Specs Box -->
             <div class="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200 leading-relaxed break-words">
               <div class="text-[10px] text-slate-600 font-semibold mb-0.5 flex items-center gap-1">
-                <i class="fa-solid fa-layer-group text-sky-500"></i> สเปกวัสดุหลัก:
+                <i class="fa-solid fa-layer-group text-sky-500 flex-shrink-0"></i> สเปกวัสดุหลัก:
               </div>
-              ${p.coreSpecs || 'มาตรฐาน มอก. / สเปกบลูเคอร์'}
+              ${escapeHtml(p.coreSpecs || 'มาตรฐาน มอก. / สเปกบลูเคอร์')}
             </div>
 
             <!-- 2-col Metrics Grid -->
             <div class="grid grid-cols-2 gap-2.5 pt-1 text-xs">
               <!-- Col 1: Financials -->
               <div class="bg-slate-50/70 p-2.5 rounded-xl border border-slate-100 space-y-1">
-                <div class="text-[10px] text-slate-600">งบสัญญา: <span class="font-bold font-kanit text-slate-900">${formatCurrency(p.contractBudget)} บ.</span></div>
-                <div class="text-[10px] text-slate-600">ต้นทุนเป้า: <span class="font-medium font-kanit text-slate-700">${formatCurrency(p.targetCost)} บ.</span></div>
+                <div class="text-[10px] text-slate-600">งบสัญญา: <span class="font-bold font-kanit text-slate-900">${budgetMobile}</span></div>
+                <div class="text-[10px] text-slate-600">ต้นทุนเป้า: <span class="font-medium font-kanit text-slate-700">${targetCostMobile}</span></div>
                 <div class="text-[10px] text-emerald-700 font-semibold font-kanit">กำไร Margin ${p.profitMargin || 0}%</div>
               </div>
 
@@ -1388,7 +1892,7 @@ function renderPortfolioMatrixTable(projectsInput = "") {
                   <div class="bg-sky-500 h-1.5 rounded-full" style="width: ${Math.min(100, Math.max(0, progressActual))}%"></div>
                 </div>
                 <div class="flex items-center justify-between text-[10px] text-slate-600">
-                  <span>ช่างวันนี้: <b class="text-slate-800">${p.manpowerToday || 0} นาย</b></span>
+                  <span>ช่างวันนี้: <b class="text-slate-800">${manpowerMobile}</b></span>
                   <span>Defect: <b class="${pendingDefects > 0 ? 'text-rose-600' : 'text-emerald-600'}">${pendingDefects} จุด</b></span>
                 </div>
               </div>
@@ -1396,12 +1900,12 @@ function renderPortfolioMatrixTable(projectsInput = "") {
 
             <!-- Bottom 2 Action Buttons -->
             <div class="grid grid-cols-2 gap-2 pt-1">
-              <button onclick="switchProject('${p.id}')" class="w-full py-2 px-3 bg-sky-50 hover:bg-sky-100 active:bg-sky-200 text-sky-800 text-xs font-semibold rounded-xl border border-sky-200 transition-all font-kanit flex items-center justify-center gap-1.5">
-                <i class="fa-solid fa-magnifying-glass text-[11px]"></i>
+              <button onclick="switchProject('${p.id}')" class="w-full py-2 px-3 bg-sky-50 hover:bg-sky-100 active:bg-sky-200 text-sky-800 text-xs font-semibold rounded-xl border border-sky-200 transition-all font-kanit flex items-center justify-center gap-1.5 whitespace-nowrap">
+                <i class="fa-solid fa-magnifying-glass text-[11px] flex-shrink-0"></i>
                 <span>เจาะลึกโครงการ</span>
               </button>
-              <button onclick="openProjectLineInbox('${p.id}')" class="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 text-xs font-semibold rounded-xl border border-emerald-200 transition-all font-kanit flex items-center justify-center gap-1.5 relative">
-                <i class="fa-brands fa-line text-emerald-600 text-sm"></i>
+              <button onclick="openProjectLineInbox('${p.id}')" class="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 text-xs font-semibold rounded-xl border border-emerald-200 transition-all font-kanit flex items-center justify-center gap-1.5 relative whitespace-nowrap">
+                <i class="fa-brands fa-line text-emerald-600 text-sm flex-shrink-0"></i>
                 <span>แชทกลุ่ม LINE</span>
                 ${p.unreadCount > 0 ? `
                   <span class="ml-1 px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-bold rounded-full">
@@ -1436,24 +1940,46 @@ function renderProjectDetailView(projectId) {
   if (!proj) return;
 
   // Header Elements
+  const shortName = CANONICAL_SHORT_NAMES[projectId] || proj.name || projectId;
+  const fullName = proj.fullName || proj.name || "";
+
+  const detailFullName = document.getElementById("projDetailFullName");
+  if (detailFullName) {
+    detailFullName.innerText = shortName;
+  }
   const headerTitle = document.getElementById("projHeaderTitle");
-  if (headerTitle) headerTitle.innerText = proj.name || projectId;
+  if (headerTitle && !detailFullName) {
+    headerTitle.innerText = shortName;
+  }
 
   const headerSubtitle = document.getElementById("projHeaderSubtitle");
-  if (headerSubtitle) headerSubtitle.innerText = proj.fullName || proj.name || "";
+  if (headerSubtitle) headerSubtitle.innerText = fullName;
 
   const badgeStatus = document.getElementById("projBadgeStatus");
   if (badgeStatus) {
-    badgeStatus.innerText = proj.status || "กำลังดำเนินการ";
-    badgeStatus.className = `px-2.5 py-1 text-xs font-semibold rounded-full flex items-center gap-1.5 border ${proj.statusBadgeClass || 'bg-emerald-500/20 text-emerald-300'}`;
+    const statusText = translateBackendStatus(proj.status || "กำลังดำเนินการ");
+    badgeStatus.innerHTML = `
+      <span class="w-1.5 h-1.5 rounded-full ${statusText === 'ส่งมอบงวดสุดท้าย' || statusText === 'ระยะส่งมอบงาน' ? 'bg-amber-400' : 'bg-emerald-400'} animate-pulse flex-shrink-0"></span>
+      <span class="whitespace-nowrap">${escapeHtml(statusText)}</span>
+    `;
+    badgeStatus.className = `px-2.5 py-1 text-xs font-semibold rounded-full flex items-center gap-1.5 border whitespace-nowrap flex-shrink-0 ${proj.statusBadgeClass || getStatusBadgeClass(statusText)}`;
   }
   
   const lineTag = document.getElementById("projLineGroupTag");
   if (lineTag) {
-    lineTag.innerHTML = `
-      <i class="fa-brands fa-line text-emerald-400"></i>
-      <span>${proj.lineGroupName || 'ผูกกลุ่ม LINE แล้ว'}</span>
-    `;
+    if (proj.lineGroupId) {
+      lineTag.className = "px-2.5 py-1 text-xs font-medium bg-emerald-950/40 text-emerald-300 border border-emerald-400/30 rounded-full flex items-center gap-1.5 whitespace-nowrap flex-shrink-0";
+      lineTag.innerHTML = `
+        <i class="fa-brands fa-line text-emerald-400 flex-shrink-0"></i>
+        <span>${escapeHtml(proj.lineGroupName || 'ผูกกลุ่ม LINE แล้ว')}</span>
+      `;
+    } else {
+      lineTag.className = "px-2.5 py-1 text-xs font-medium bg-slate-800/80 text-amber-300 border border-amber-400/30 rounded-full flex items-center gap-1.5 whitespace-nowrap flex-shrink-0";
+      lineTag.innerHTML = `
+        <i class="fa-solid fa-clock text-amber-300 flex-shrink-0"></i>
+        <span>ยังไม่ได้เชิญบอทเข้ากลุ่ม LINE (@395avvfu)</span>
+      `;
+    }
   }
 
   const folderPath = document.getElementById("projFolderPath");
@@ -1664,8 +2190,8 @@ function renderActionItems(proj) {
               <i class="fa-solid fa-user-gear"></i>
             </span>
             <div>
-              <p class="font-bold text-xs text-slate-900">${act.assignee}</p>
-              <p class="text-[10px] text-slate-600">สั่งโดย: ${act.orderedBy} · ${act.timestamp}</p>
+              <p class="font-bold text-xs text-slate-900">${escapeHtml(act.assignee)}</p>
+              <p class="text-[10px] text-slate-600">สั่งโดย: ${escapeHtml(act.orderedBy)} · ${escapeHtml(act.timestamp)}</p>
             </div>
           </div>
           <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -1675,24 +2201,24 @@ function renderActionItems(proj) {
                 ? 'bg-amber-100 text-amber-700' 
                 : 'bg-slate-100 text-slate-600'
           }">
-            ${act.priority}
+            ${escapeHtml(act.priority)}
           </span>
         </div>
 
         <h4 class="text-xs font-bold text-slate-800 mb-1.5 ${act.completed ? 'line-through text-slate-600' : ''}">
-          ${act.title}
+          ${escapeHtml(act.title)}
         </h4>
 
         <!-- Verbatim LINE Quote -->
         <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-[11px] text-slate-600 italic mb-3 flex items-start gap-1.5">
           <i class="fa-brands fa-line text-emerald-500 text-xs mt-0.5 flex-shrink-0"></i>
-          <span>"${act.quote}"</span>
+          <span>"${escapeHtml(act.quote)}"</span>
         </div>
 
         <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
           <span class="text-[11px] text-slate-600 flex items-center gap-1">
             <i class="fa-regular fa-clock text-amber-500"></i>
-            กำหนด: ${act.deadline}
+            กำหนด: ${escapeHtml(act.deadline)}
           </span>
           <button onclick="toggleActionItemComplete('${proj.id}', '${act.id}')" class="px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
             act.completed 
@@ -1746,26 +2272,26 @@ function renderDefectsKanban(proj) {
               ? 'bg-amber-100 text-amber-700' 
               : 'bg-slate-100 text-slate-700'
         }">
-          ${df.severity}
+          ${escapeHtml(df.severity)}
         </span>
-        <span class="text-[10px] text-slate-600">${df.date}</span>
+        <span class="text-[10px] text-slate-600">${escapeHtml(df.date)}</span>
       </div>
 
       ${df.photoUrl ? `
-        <div class="relative rounded-xl overflow-hidden h-28 bg-slate-100 cursor-pointer" onclick="openLightbox('${df.photoUrl}', '${df.title}')">
-          <img src="${df.photoUrl}" alt="${df.title}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
+        <div class="relative rounded-xl overflow-hidden h-28 bg-slate-100 cursor-pointer" onclick="openLightbox('${escapeHtml(df.photoUrl)}', '${escapeHtml(df.title)}')">
+          <img src="${escapeHtml(df.photoUrl)}" alt="${escapeHtml(df.title)}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
           <span class="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">กดดูรูป</span>
         </div>
       ` : ''}
 
-      <h5 class="text-xs font-bold text-slate-800 leading-snug">${df.title}</h5>
+      <h5 class="text-xs font-bold text-slate-800 leading-snug">${escapeHtml(df.title)}</h5>
       <p class="text-[11px] text-slate-600 flex items-center gap-1">
-        <i class="fa-solid fa-location-dot text-rose-500"></i>
-        ${df.location}
+        <i class="fa-solid fa-location-dot text-rose-500 flex-shrink-0"></i>
+        <span>${escapeHtml(df.location)}</span>
       </p>
 
       <div class="flex items-center justify-between text-[10px] text-slate-600 pt-1.5 border-t border-slate-100">
-        <span>แจ้งโดย: ${df.reporter}</span>
+        <span>แจ้งโดย: ${escapeHtml(df.reporter)}</span>
         <div class="flex items-center gap-1">
           ${df.status !== 'pending' ? `
             <button onclick="moveDefectStatus('${proj.id}', '${df.id}', 'pending')" title="ย้ายไป 'รอการแก้ไข'" class="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center">
@@ -1883,68 +2409,114 @@ function renderMasterDossier(proj) {
   // 1. Contractors Directory (Desktop Table)
   const contractorBody = document.getElementById("dossierContractorBody") || document.getElementById("contractorsTableBody");
   if (contractorBody && Array.isArray(proj.contractors)) {
-    contractorBody.innerHTML = proj.contractors.map(c => `
-      <tr class="table-row-hover transition-colors">
-        <td class="py-2.5 px-4 font-bold text-slate-800">${c.name}</td>
-        <td class="py-2.5 px-3 text-slate-700">${c.role}</td>
-        <td class="py-2.5 px-3 text-slate-600 font-mono-code text-[11px]">${c.contact}</td>
-        <td class="py-2.5 px-3 text-slate-600">${c.milestones}</td>
-        <td class="py-2.5 px-3 text-right font-kanit font-semibold text-slate-900">${c.amount}</td>
-      </tr>
-    `).join("");
+    if (proj.contractors.length === 0) {
+      contractorBody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-xs text-slate-500">ไม่มีข้อมูลผู้รับเหมาในโครงการนี้</td></tr>`;
+    } else {
+      contractorBody.innerHTML = proj.contractors.map(c => {
+        const cName = c.name || c.contractor || '-';
+        const cRole = c.role || '-';
+        const cContact = c.contact || c.phone || c.company || '-';
+        const cMilestones = c.milestones || (c.status === 'PAID' ? 'จ่ายครบแล้ว' : 'ตามงวดงาน');
+        const cAmount = c.amount || (c.total_amount ? `${formatCurrency(c.total_amount)} บ.` : (c.cost ? `${formatCurrency(c.cost)} บ.` : '-'));
+        return `
+          <tr class="table-row-hover transition-colors">
+            <td class="py-2.5 px-4 font-bold text-slate-800">${escapeHtml(cName)}</td>
+            <td class="py-2.5 px-3 text-slate-700">${escapeHtml(cRole)}</td>
+            <td class="py-2.5 px-3 text-slate-600 font-mono-code text-[11px]">${escapeHtml(cContact)}</td>
+            <td class="py-2.5 px-3 text-slate-600">${escapeHtml(cMilestones)}</td>
+            <td class="py-2.5 px-3 text-right font-kanit font-semibold text-slate-900">${escapeHtml(cAmount)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
   }
 
   // 2. Mobile Contractors Cards
   const mobileContractors = document.getElementById("mobileContractorsCards");
   if (mobileContractors && Array.isArray(proj.contractors)) {
-    mobileContractors.innerHTML = proj.contractors.map(c => `
-      <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200 space-y-1.5">
-        <div class="flex items-start justify-between gap-2">
-          <h5 class="font-bold text-slate-900 text-xs font-kanit">${c.name}</h5>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">${c.role}</span>
-        </div>
-        <div class="text-[11px] text-slate-600 flex items-center gap-1 font-mono-code">
-          <i class="fa-solid fa-phone text-[10px] text-slate-600"></i> ${c.contact}
-        </div>
-        <div class="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
-          <span class="text-slate-500">${c.milestones}</span>
-          <span class="font-bold font-kanit text-slate-900">${c.amount}</span>
-        </div>
-      </div>
-    `).join("");
+    if (proj.contractors.length === 0) {
+      mobileContractors.innerHTML = `<div class="p-3 text-center text-xs text-slate-500 bg-slate-50 rounded-xl">ไม่มีข้อมูลผู้รับเหมาในโครงการนี้</div>`;
+    } else {
+      mobileContractors.innerHTML = proj.contractors.map(c => {
+        const cName = c.name || c.contractor || '-';
+        const cRole = c.role || '-';
+        const cContact = c.contact || c.phone || c.company || '-';
+        const cMilestones = c.milestones || (c.status === 'PAID' ? 'จ่ายครบแล้ว' : 'ตามงวดงาน');
+        const cAmount = c.amount || (c.total_amount ? `${formatCurrency(c.total_amount)} บ.` : (c.cost ? `${formatCurrency(c.cost)} บ.` : '-'));
+        return `
+          <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200 space-y-1.5">
+            <div class="flex items-start justify-between gap-2">
+              <h5 class="font-bold text-slate-900 text-xs font-kanit">${escapeHtml(cName)}</h5>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">${escapeHtml(cRole)}</span>
+            </div>
+            <div class="text-[11px] text-slate-600 flex items-center gap-1 font-mono-code">
+              <i class="fa-solid fa-phone text-[10px] text-slate-500"></i> ${escapeHtml(cContact)}
+            </div>
+            <div class="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
+              <span class="text-slate-500">${escapeHtml(cMilestones)}</span>
+              <span class="font-bold font-kanit text-slate-900">${escapeHtml(cAmount)}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
   }
 
   // 3. Materials Specification (Desktop Table)
   const materialBody = document.getElementById("dossierMaterialBody") || document.getElementById("materialsTableBody");
   if (materialBody && Array.isArray(proj.materials)) {
-    materialBody.innerHTML = proj.materials.map(m => `
-      <tr class="table-row-hover transition-colors">
-        <td class="py-2.5 px-4 font-semibold text-slate-800">${m.item}</td>
-        <td class="py-2.5 px-3 text-slate-600">${m.spec}</td>
-        <td class="py-2.5 px-3 text-center font-kanit">${m.qty}</td>
-        <td class="py-2.5 px-3 text-center text-slate-600">${m.unit}</td>
-        <td class="py-2.5 px-3 text-right font-kanit text-slate-700">${m.unitPrice}</td>
-        <td class="py-2.5 px-4 text-right font-kanit font-bold text-slate-900">${m.total}</td>
-      </tr>
-    `).join("");
+    if (proj.materials.length === 0) {
+      materialBody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-xs text-slate-500">ไม่มีข้อมูลวัสดุในโครงการนี้</td></tr>`;
+    } else {
+      materialBody.innerHTML = proj.materials.map(m => {
+        const mItem = m.item || m.name || '-';
+        const mSpec = m.spec || m.supplier || m.status || 'มาตรฐาน มอก.';
+        const mQty = m.qty || m.quantity || '-';
+        const mUnit = m.unit || 'หน่วย';
+        const mUnitPrice = m.unitPrice || '-';
+        const mTotal = m.total || (m.cost ? `${formatCurrency(m.cost)} บ.` : '-');
+        return `
+          <tr class="table-row-hover transition-colors">
+            <td class="py-2.5 px-4 font-semibold text-slate-800">${escapeHtml(mItem)}</td>
+            <td class="py-2.5 px-3 text-slate-600">${escapeHtml(mSpec)}</td>
+            <td class="py-2.5 px-3 text-center font-kanit">${escapeHtml(mQty)}</td>
+            <td class="py-2.5 px-3 text-center text-slate-600">${escapeHtml(mUnit)}</td>
+            <td class="py-2.5 px-3 text-right font-kanit text-slate-700">${escapeHtml(mUnitPrice)}</td>
+            <td class="py-2.5 px-4 text-right font-kanit font-bold text-slate-900">${escapeHtml(mTotal)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
   }
 
   // 4. Mobile Materials Cards
   const mobileMaterials = document.getElementById("mobileMaterialsCards");
   if (mobileMaterials && Array.isArray(proj.materials)) {
-    mobileMaterials.innerHTML = proj.materials.map(m => `
-      <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200 space-y-1.5">
-        <div class="flex items-start justify-between gap-2">
-          <h5 class="font-bold text-slate-900 text-xs">${m.item}</h5>
-          <span class="font-bold font-kanit text-slate-900 text-xs">${m.total} บ.</span>
-        </div>
-        <p class="text-[11px] text-slate-600 leading-snug">${m.spec}</p>
-        <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-          <span>จำนวน: <b class="text-slate-700 font-kanit">${m.qty} ${m.unit}</b></span>
-          <span>หน่วยละ: <b class="text-slate-700 font-kanit">${m.unitPrice} บ.</b></span>
-        </div>
-      </div>
-    `).join("");
+    if (proj.materials.length === 0) {
+      mobileMaterials.innerHTML = `<div class="p-3 text-center text-xs text-slate-500 bg-slate-50 rounded-xl">ไม่มีข้อมูลวัสดุในโครงการนี้</div>`;
+    } else {
+      mobileMaterials.innerHTML = proj.materials.map(m => {
+        const mItem = m.item || m.name || '-';
+        const mSpec = m.spec || m.supplier || m.status || 'มาตรฐาน มอก.';
+        const mQty = m.qty || m.quantity || '-';
+        const mUnit = m.unit || '';
+        const mUnitPrice = m.unitPrice || '-';
+        const mTotal = m.total || (m.cost ? `${formatCurrency(m.cost)} บ.` : '-');
+        return `
+          <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200 space-y-1.5">
+            <div class="flex items-start justify-between gap-2">
+              <h5 class="font-bold text-slate-900 text-xs">${escapeHtml(mItem)}</h5>
+              <span class="font-bold font-kanit text-slate-900 text-xs">${escapeHtml(mTotal)}</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug">${escapeHtml(mSpec)}</p>
+            <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+              <span>จำนวน: <b class="text-slate-700 font-kanit">${escapeHtml(mQty)} ${escapeHtml(mUnit)}</b></span>
+              <span>หน่วยละ: <b class="text-slate-700 font-kanit">${escapeHtml(mUnitPrice)}</b></span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
   }
 
   // 5. Files List
@@ -1990,24 +2562,33 @@ function renderInboxRoomsList(searchTerm = "") {
 
   container.innerHTML = rooms.map(room => {
     const isActive = room.id === appState.inboxActiveRoomId;
+    const isPaired = Boolean(room.lineGroupId);
+    const shortName = CANONICAL_SHORT_NAMES[room.id] || room.name || room.id;
+
     return `
       <div onclick="selectInboxRoom('${room.id}')" class="p-3 cursor-pointer transition-all hover:bg-slate-100 flex items-start gap-2.5 ${isActive ? 'line-room-active bg-emerald-50/70' : 'bg-transparent'}">
         <div class="relative flex-shrink-0 mt-0.5">
-          <div class="w-9 h-9 rounded-xl bg-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs font-kanit">
-            ${(room.name || room.id).slice(0, 3)}
+          <div class="w-9 h-9 rounded-xl ${isPaired ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'} flex items-center justify-center font-bold text-xs font-kanit">
+            ${escapeHtml(shortName.slice(0, 3))}
           </div>
-          <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white"></span>
+          <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${isPaired ? 'bg-emerald-500' : 'bg-amber-400'} border-2 border-white"></span>
         </div>
 
         <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-1">
             <h5 class="text-xs font-bold font-kanit text-slate-900 truncate ${isActive ? 'text-emerald-800' : ''}">
-              ${room.name}
+              ${escapeHtml(shortName)}
             </h5>
-            <span class="text-[10px] text-slate-600 flex-shrink-0">${room.lastMessageTime || ''}</span>
+            <span class="text-[10px] text-slate-500 flex-shrink-0">${escapeHtml(room.lastMessageTime || '')}</span>
           </div>
-          <p class="text-[11px] text-slate-600 truncate mt-0.5 leading-snug">
-            ${room.lastMessageText || 'ไม่มีข้อความใหม่'}
+          <div class="mt-0.5">
+            ${isPaired 
+              ? `<span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium"><i class="fa-brands fa-line text-emerald-500"></i> ผูกกลุ่มแล้ว</span>` 
+              : `<span class="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200"><i class="fa-solid fa-clock text-amber-500 text-[9px]"></i> รอเชิญบอทเข้ากลุ่ม</span>`
+            }
+          </div>
+          <p class="text-[11px] text-slate-500 truncate mt-0.5 leading-snug">
+            ${escapeHtml(room.lastMessageText || (isPaired ? 'ไม่มีข้อความใหม่' : 'ยังไม่ได้ผูกกลุ่ม LINE — กดเพื่อดูวิธีเชิญบอท @395avvfu'))}
           </p>
         </div>
 
@@ -2075,23 +2656,32 @@ function renderActiveRoomChat() {
   const room = appState.projects[appState.inboxActiveRoomId];
   if (!room) return;
 
+  const shortName = CANONICAL_SHORT_NAMES[room.id] || room.name || room.id;
+  const isPaired = Boolean(room.lineGroupId);
+
   // Header update
   const roomNameEl = document.getElementById("activeRoomName");
   if (roomNameEl) {
-    roomNameEl.innerText = room.lineGroupName || room.name;
+    roomNameEl.innerText = isPaired ? (room.lineGroupName || shortName) : `${shortName} (ยังไม่ได้ผูกกลุ่ม LINE)`;
   }
   const titleEl = document.getElementById("inboxCurrentRoomTitle");
   if (titleEl && !roomNameEl) {
-    titleEl.innerText = room.lineGroupName || room.name;
+    titleEl.innerText = isPaired ? (room.lineGroupName || shortName) : `${shortName} (ยังไม่ได้ผูกกลุ่ม LINE)`;
   }
 
   const metaEl = document.getElementById("inboxCurrentRoomMeta");
   if (metaEl) {
-    const specsStr = (room.coreSpecs || "");
-    metaEl.innerHTML = `
-      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-      <span>โฟลเดอร์: ${room.folderName || room.name} · สเปก: ${specsStr.slice(0, 35)}...</span>
-    `;
+    if (isPaired) {
+      metaEl.innerHTML = `
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+        <span class="truncate">สถานะ: ผูกกับกลุ่ม LINE แล้ว · โฟลเดอร์: ${escapeHtml(room.folderName || room.name)}</span>
+      `;
+    } else {
+      metaEl.innerHTML = `
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"></span>
+        <span class="truncate text-amber-700 font-medium">สถานะ: ⏳ ยังไม่ได้เชิญบอท @395avvfu เข้ากลุ่ม LINE ของโครงการนี้</span>
+      `;
+    }
   }
 
   // Render messages
@@ -2099,12 +2689,41 @@ function renderActiveRoomChat() {
   if (!stream) return;
 
   if (!room.chatHistory || room.chatHistory.length === 0) {
-    stream.innerHTML = `
-      <div class="text-center py-12 text-slate-600">
-        <i class="fa-regular fa-comment-dots text-3xl mb-2 text-slate-300"></i>
-        <p>ยังไม่มีข้อความในกลุ่มนี้</p>
-      </div>
-    `;
+    if (!isPaired) {
+      stream.innerHTML = `
+        <div class="max-w-md mx-auto my-6 p-6 bg-slate-50 border border-slate-200 rounded-2xl text-center space-y-4 shadow-sm">
+          <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+            <i class="fa-brands fa-line text-3xl text-emerald-500"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-slate-800 text-sm font-kanit">ยังไม่ได้เชิญบอทเข้ากลุ่ม LINE ของโครงการนี้</h4>
+            <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+              ขณะนี้ยังไม่มีข้อความ รูปภาพ หรือรายงานหน้างานจากกลุ่ม LINE เนื่องจากยังไม่ได้เชิญบอท <b class="text-slate-700">@395avvfu</b> เข้ากลุ่มและพิมพ์คำสั่งผูกโครงการ
+            </p>
+          </div>
+          <div class="bg-white p-3.5 rounded-xl border border-slate-200 text-left space-y-2 text-xs">
+            <div class="font-bold text-slate-700 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-list-check text-sky-500"></i> 3 ขั้นตอนเชื่อมต่อกลุ่ม LINE ง่ายๆ:
+            </div>
+            <ol class="list-decimal list-inside space-y-1.5 text-slate-600 leading-snug">
+              <li>แอดเพื่อนบอท <b class="text-emerald-700 font-mono">@395avvfu</b> ในแอป LINE</li>
+              <li>เชิญบอทเข้ากลุ่ม LINE ของไซต์งาน <b class="text-slate-800">${escapeHtml(shortName)}</b></li>
+              <li>พิมพ์ในกลุ่มว่า: <span class="px-2 py-0.5 bg-slate-100 rounded text-slate-900 font-mono font-bold select-all">ผูกกับโครงการ ${escapeHtml(shortName)}</span></li>
+            </ol>
+          </div>
+          <div class="text-[11px] text-slate-500">
+            เมื่อพิมพ์ผูกโครงการแล้ว ระบบจะเชื่อมห้องแชทและดึงข้อความ รายงานช่าง และภาพหน้างานเข้าตารางนี้อัตโนมัติทันที
+          </div>
+        </div>
+      `;
+    } else {
+      stream.innerHTML = `
+        <div class="text-center py-12 text-slate-500 space-y-2">
+          <i class="fa-regular fa-comment-dots text-3xl text-slate-300"></i>
+          <p class="text-xs">ยังไม่มีข้อความใหม่ในกลุ่มนี้</p>
+        </div>
+      `;
+    }
     return;
   }
 
@@ -2826,9 +3445,9 @@ function logSimEvent(endpoint, eventName, payload) {
   const entry = document.createElement("div");
   entry.className = "py-1 border-b border-slate-800 text-[10px]";
   entry.innerHTML = `
-    <span class="text-sky-400 font-bold">[${now}] ${endpoint}</span>
-    <span class="text-emerald-400 font-semibold">· ${eventName}</span>
-    <pre class="text-slate-300 mt-0.5 whitespace-pre-wrap">${JSON.stringify(payload, null, 2)}</pre>
+    <span class="text-sky-400 font-bold">[${now}] ${escapeHtml(endpoint)}</span>
+    <span class="text-emerald-400 font-semibold">· ${escapeHtml(eventName)}</span>
+    <pre class="text-slate-300 mt-0.5 whitespace-pre-wrap">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
   `;
 
   logContainer.insertBefore(entry, logContainer.firstChild);
@@ -2952,9 +3571,9 @@ function renderProjectDropdown() {
   const currentVal = select.value;
   select.innerHTML = `
     <option value="all">🏢 ภาพรวมทุกโครงการ (Portfolio Overview - ${Object.keys(appState.projects).length} โครงการ)</option>
-    <optgroup label="── โครงการบน Desktop ──">
+    <optgroup label="── 7 โครงการบน Desktop ──">
       ${Object.values(appState.projects).map(p => `
-        <option value="${p.id}">${p.name || p.id} (${(p.coreSpecs || "").slice(0, 25)}...)</option>
+        <option value="${p.id}">${escapeHtml(CANONICAL_SHORT_NAMES[p.id] || p.name || p.id)}</option>
       `).join("")}
     </optgroup>
   `;
@@ -3146,14 +3765,10 @@ function formatCurrency(val) {
   return val.toLocaleString("th-TH");
 }
 
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.innerText = text;
-  return div.innerHTML;
-}
-
 function formatBotMarkdown(text) {
-  let html = text
+  if (!text) return "";
+  const escaped = escapeHtml(String(text));
+  const html = escaped
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.*?)\*/g, "<em>$1</em>")
     .replace(/`(.*?)`/g, "<code class='bg-slate-100 text-slate-800 px-1 py-0.5 rounded text-[10px]'>$1</code>")

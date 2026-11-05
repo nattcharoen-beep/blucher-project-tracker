@@ -5,249 +5,26 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { SEED_PROJECTS } from './seed_data.js';
 
-// Fallback seed data if seed_data.js is missing or still being created by peer
-const FALLBACK_SEED_PROJECTS = [
-  {
-    id: 'PRJ-LUMPHINI',
-    name: 'โครงการสวนลุมพินี (สนามเด็กเล่น & พื้นยาง EPDM)',
-    short_name: 'สวนลุมพินี',
-    folder_path: 'C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท ลุมพินี',
-    line_group_id: 'c_lumphini_line_grp',
-    status: 'ACTIVE',
-    budget: 3500000,
-    target_cost: 2450000,
-    actual_cost: 1680000,
-    planned_progress: 75.0,
-    actual_progress: 68.5,
-    start_date: '2026-09-01',
-    end_date: '2026-12-15',
-    daily_workers: 14,
-    specs_summary: 'พื้นยาง EPDM 2 ชั้น หนา 25 มม. (SBR 15 มม. + EPDM 10 มม.) มาตรฐานความปลอดภัย EN1177 พื้นที่ 850 ตร.ม.',
-    materials_json: JSON.stringify([
-      { name: 'เม็ดยาง EPDM สีฟ้า/เขียว', required: '8,500 กก.', delivered: '8,500 กก.', status: 'COMPLETED' },
-      { name: 'เม็ดยาง SBR ดำรองพื้น', required: '12,000 กก.', delivered: '12,000 กก.', status: 'COMPLETED' },
-      { name: 'น้ำยาโพลียูรีเทนไบนเดอร์ (PU Binder)', required: '3,200 กก.', delivered: '2,800 กก.', status: 'IN_TRANSIT' }
-    ]),
-    contractors_json: JSON.stringify([
-      { role: 'หัวหน้าช่างติดตั้งยาง EPDM', name: 'ช่างสมหมาย', phone: '081-234-5678', company: 'ทีมช่างบลูเคอร์ A' },
-      { role: 'ผู้รับเหมาปรับพื้นคอนกรีต', name: 'นายช่างทวี', phone: '089-876-5432', company: 'ทวีทรัพย์การช่าง' }
-    ]),
-    source_files_json: JSON.stringify([
-      'TOR_สวนลุมพินี_EPDM.pdf',
-      'BOQ_ต้นทุน_ลุมพินี_v3.xlsx',
-      'Layout_สนามเด็กเล่น_ลุมพินี.dwg'
-    ]),
-    dossier_md: '# โครงการสวนลุมพินี\n- พื้นที่ติดตั้ง EPDM 850 ตร.ม.\n- อุณหภูมิหน้างานปกติ ควบคุมความชื้นพื้นคอนกรีตไม่เกิน 5%',
-    archived: 0
-  },
-  {
-    id: 'PRJ-BANGNA',
-    name: 'โครงการบางนา (ลานกีฬาอเนกประสงค์ & พื้น PU Sport)',
-    short_name: 'บางนา',
-    folder_path: 'C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท บางนา',
-    line_group_id: 'c_bangna_line_grp',
-    status: 'ACTIVE',
-    budget: 4200000,
-    target_cost: 2900000,
-    actual_cost: 1250000,
-    planned_progress: 45.0,
-    actual_progress: 42.0,
-    start_date: '2026-10-01',
-    end_date: '2026-12-30',
-    daily_workers: 18,
-    specs_summary: 'พื้นสนามกีฬา Silicon PU ความหนา 5 มม. พื้นที่ 1,200 ตร.ม. พร้อมตีเส้นสนามบาสเกตบอลและวอลเลย์บอล',
-    materials_json: JSON.stringify([
-      { name: 'Silicon PU Primer', required: '400 กก.', delivered: '400 กก.', status: 'COMPLETED' },
-      { name: 'PU Elastic Layer', required: '3,600 กก.', delivered: '2,000 กก.', status: 'PARTIAL' },
-      { name: 'Top Coat UV Resistant', required: '600 กก.', delivered: '0 กก.', status: 'WAITING' }
-    ]),
-    contractors_json: JSON.stringify([
-      { role: 'โฟร์แมนคุมงานสนาม', name: 'ช่างวิชัย', phone: '086-112-2334', company: 'ทีมช่างบลูเคอร์ B' }
-    ]),
-    source_files_json: JSON.stringify([
-      'TOR_ลานกีฬาบางนา.pdf',
-      'BOQ_บางนา_PU.xlsx'
-    ]),
-    dossier_md: '# โครงการบางนา\n- พื้นที่ 1,200 ตร.ม.\n- อยู่ระหว่างลงชั้นยางสังเคราะห์ชั้นแรก',
-    archived: 0
-  },
-  {
-    id: 'PRJ-SAPHAN-SUNG',
-    name: 'โครงการสะพานสูง (สนามฟุตซอลหญ้าเทียม & EPDM)',
-    short_name: 'สะพานสูง',
-    folder_path: 'C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท สะพานสูง',
-    line_group_id: 'c_saphansung_line_grp',
-    status: 'ACTIVE',
-    budget: 2800000,
-    target_cost: 1950000,
-    actual_cost: 1850000,
-    planned_progress: 90.0,
-    actual_progress: 88.0,
-    start_date: '2026-08-15',
-    end_date: '2026-11-20',
-    daily_workers: 8,
-    specs_summary: 'สนามฟุตซอลหญ้าเทียม Monofilament 50 มม. และขอบพื้นยาง EPDM กันกระแทก',
-    materials_json: JSON.stringify([
-      { name: 'หญ้าเทียมฟุตซอล 50 มม.', required: '960 ตร.ม.', delivered: '960 ตร.ม.', status: 'COMPLETED' },
-      { name: 'ทรายซิลิกาคัดขนาด', required: '24 ตัน', delivered: '24 ตัน', status: 'COMPLETED' },
-      { name: 'เม็ดยางดำ Infill', required: '8 ตัน', delivered: '8 ตัน', status: 'COMPLETED' }
-    ]),
-    contractors_json: JSON.stringify([
-      { role: 'หัวหน้าช่างหญ้าเทียม', name: 'ช่างสมปอง', phone: '085-555-1234', company: 'กรีนฟิลด์ เอ็นจิเนียริ่ง' }
-    ]),
-    source_files_json: JSON.stringify([
-      'TOR_สะพานสูง_Futsal.pdf',
-      'ปร4_สะพานสูง.xlsx'
-    ]),
-    dossier_md: '# โครงการสะพานสูง\n- งานลงทรายและเม็ดยางใกล้เสร็จสมบูรณ์ รอส่งมอบงานงวดสุดท้าย',
-    archived: 0
-  },
-  {
-    id: 'PRJ-BANG-KHAE',
-    name: 'โครงการบางแค (ลานออกกำลังกายกลางแจ้งและทางเดินยางสังเคราะห์)',
-    short_name: 'บางแค',
-    folder_path: 'C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท บางแค',
-    line_group_id: 'c_bang_khae_line_grp',
-    status: 'ACTIVE',
-    budget: 1950000,
-    target_cost: 1350000,
-    actual_cost: 820000,
-    planned_progress: 60.0,
-    actual_progress: 58.0,
-    start_date: '2026-09-15',
-    end_date: '2026-11-30',
-    daily_workers: 10,
-    specs_summary: 'ลานพื้นยาง EPDM 15 มม. สำหรับเครื่องออกกำลังกายกลางแจ้ง พื้นที่ 450 ตร.ม.',
-    materials_json: JSON.stringify([]),
-    contractors_json: JSON.stringify([]),
-    source_files_json: JSON.stringify([]),
-    dossier_md: '# โครงการบางแค',
-    archived: 0
-  },
-  {
-    id: 'PRJ-CHATUCHAK',
-    name: 'โครงการสวนจตุจักร (ลานกิจกรรมและทางวิ่งยาง EPDM)',
-    short_name: 'จตุจักร',
-    folder_path: 'C:\\Users\\nattc\\OneDrive\\Desktop\\ศนท จตุจักร',
-    line_group_id: 'c_chatuchak_line_grp',
-    status: 'ACTIVE',
-    budget: 5100000,
-    target_cost: 3500000,
-    actual_cost: 1100000,
-    planned_progress: 30.0,
-    actual_progress: 28.0,
-    start_date: '2026-10-15',
-    end_date: '2027-01-30',
-    daily_workers: 16,
-    specs_summary: 'ลานยาง EPDM กราฟิกลายการ์ตูนสามมิติ และลู่วิ่งความหนา 13 มม. พื้นที่ 1,500 ตร.ม.',
-    materials_json: JSON.stringify([]),
-    contractors_json: JSON.stringify([]),
-    source_files_json: JSON.stringify([]),
-    dossier_md: '# โครงการสวนจตุจักร',
-    archived: 0
-  },
-  {
-    id: 'PRJ-PRACHIN',
-    name: 'โครงการปราจีนบุรี (สนามกีฬาเทศบาลเมืองปราจีนบุรี)',
-    short_name: 'ปราจีนบุรี',
-    folder_path: 'C:\\Users\\nattc\\OneDrive\\Desktop\\อบต ปราจีน',
-    line_group_id: 'c_prachin_line_grp',
-    status: 'ACTIVE',
-    budget: 6800000,
-    target_cost: 4700000,
-    actual_cost: 2100000,
-    planned_progress: 35.0,
-    actual_progress: 32.0,
-    start_date: '2026-09-20',
-    end_date: '2027-02-28',
-    daily_workers: 22,
-    specs_summary: 'ลู่วิ่งมาตรฐานกรีฑา 8 ลู่ พื้นยางสังเคราะห์ชนิดแซนด์วิช (Sandwich System) ความหนา 13 มม.',
-    materials_json: JSON.stringify([]),
-    contractors_json: JSON.stringify([]),
-    source_files_json: JSON.stringify([]),
-    dossier_md: '# โครงการปราจีนบุรี',
-    archived: 0
-  },
-  {
-    id: 'PRJ-MAE-HONG-SON',
-    name: 'โครงการแม่ฮ่องสอน (ลานกีฬาโรงเรียนชุมชนแม่ฮ่องสอน)',
-    short_name: 'แม่ฮ่องสอน',
-    folder_path: 'C:\\Users\\nattc\\OneDrive\\Desktop\\พี่บอม แม่ฮ่องสอน',
-    line_group_id: 'c_maehongson_line_grp',
-    status: 'PLANNING',
-    budget: 1800000,
-    target_cost: 1250000,
-    actual_cost: 150000,
-    planned_progress: 15.0,
-    actual_progress: 12.0,
-    start_date: '2026-11-01',
-    end_date: '2027-01-15',
-    daily_workers: 6,
-    specs_summary: 'ลานกีฬาอเนกประสงค์ Acrylic Sport Floor 5 ชั้น พื้นที่ 650 ตร.ม.',
-    materials_json: JSON.stringify([]),
-    contractors_json: JSON.stringify([]),
-    source_files_json: JSON.stringify([]),
-    dossier_md: '# โครงการแม่ฮ่องสอน',
-    archived: 0
-  }
-];
-
-const FALLBACK_SEED_WBS = [
-  { id: 'WBS-LUM-01', project_id: 'PRJ-LUMPHINI', task_code: '1.1', title: 'เตรียมพื้นผิวและทดสอบความชื้นคอนกรีต', weight_percent: 15, progress_percent: 100, status: 'COMPLETED', assignee: 'ช่างทวี', start_date: '2026-09-01', due_date: '2026-09-10' },
-  { id: 'WBS-LUM-02', project_id: 'PRJ-LUMPHINI', task_code: '1.2', title: 'ทาน้ำยารองพื้น Primer เพิ่มการยึดเกาะ', weight_percent: 10, progress_percent: 100, status: 'COMPLETED', assignee: 'ช่างสมหมาย', start_date: '2026-09-11', due_date: '2026-09-15' },
-  { id: 'WBS-LUM-03', project_id: 'PRJ-LUMPHINI', task_code: '1.3', title: 'ติดตั้งชั้นยางดำ SBR หนา 15 มม.', weight_percent: 30, progress_percent: 100, status: 'COMPLETED', assignee: 'ช่างสมหมาย', start_date: '2026-09-16', due_date: '2026-10-05' },
-  { id: 'WBS-LUM-04', project_id: 'PRJ-LUMPHINI', task_code: '1.4', title: 'ปูเม็ดยาง EPDM สีฟ้า/เขียว หนา 10 มม.', weight_percent: 35, progress_percent: 55, status: 'IN_PROGRESS', assignee: 'ช่างสมหมาย', start_date: '2026-10-06', due_date: '2026-11-20' },
-  { id: 'WBS-LUM-05', project_id: 'PRJ-LUMPHINI', task_code: '1.5', title: 'เก็บงานรอยต่อ ตรวจสอบระนาบ และส่งมอบงาน', weight_percent: 10, progress_percent: 0, status: 'PENDING', assignee: 'นายช่างทวี', start_date: '2026-11-21', due_date: '2026-12-15' },
-
-  { id: 'WBS-BGN-01', project_id: 'PRJ-BANGNA', task_code: '2.1', title: 'ขัดผิวคอนกรีตด้วยเครื่อง Diamond Grinding', weight_percent: 20, progress_percent: 100, status: 'COMPLETED', assignee: 'ช่างวิชัย', start_date: '2026-10-01', due_date: '2026-10-10' },
-  { id: 'WBS-BGN-02', project_id: 'PRJ-BANGNA', task_code: '2.2', title: 'ทา Epoxy Primer ป้องกันความชื้น', weight_percent: 15, progress_percent: 100, status: 'COMPLETED', assignee: 'ช่างวิชัย', start_date: '2026-10-11', due_date: '2026-10-18' },
-  { id: 'WBS-BGN-03', project_id: 'PRJ-BANGNA', task_code: '2.3', title: 'ปาดเนื้อยางยืดหยุ่น Silicon PU ชั้นที่ 1', weight_percent: 25, progress_percent: 60, status: 'IN_PROGRESS', assignee: 'ช่างวิชัย', start_date: '2026-10-19', due_date: '2026-11-10' },
-  { id: 'WBS-BGN-04', project_id: 'PRJ-BANGNA', task_code: '2.4', title: 'ปาดเนื้อยางชั้นที่ 2 และพ่นเคลือบสี Top Coat', weight_percent: 25, progress_percent: 0, status: 'PENDING', assignee: 'ช่างวิชัย', start_date: '2026-11-11', due_date: '2026-12-05' },
-  { id: 'WBS-BGN-05', project_id: 'PRJ-BANGNA', task_code: '2.5', title: 'ตีเส้นสนามมาตรฐานและติดตั้งอุปกรณ์กีฬา', weight_percent: 15, progress_percent: 0, status: 'PENDING', assignee: 'ช่างวิชัย', start_date: '2026-12-06', due_date: '2026-12-30' }
-];
-
-const FALLBACK_SEED_ACTION_ITEMS = [
-  { id: 'ACT-001', project_id: 'PRJ-LUMPHINI', title: 'ตรวจสอบใบ Certificate กาว PU Binder จากโรงงานก่อนเทยางชั้นบน', assignee: 'ช่างสมหมาย', due_date: '2026-11-08', status: 'IN_PROGRESS', assigned_by: 'พี่นัท', raw_message: 'ช่างสมหมาย อย่าลืมตรวจ cert กาว PU ล็อตใหม่ก่อนลงนะ', created_at: new Date().toISOString() },
-  { id: 'ACT-002', project_id: 'PRJ-LUMPHINI', title: 'ประสานงานช่างกทม. ตรวจเช็คระดับท่อระบายน้ำรอบสนาม', assignee: 'นายช่างทวี', due_date: '2026-11-12', status: 'OPEN', assigned_by: 'พี่นัท', raw_message: 'พี่ทวีช่วยประสานช่างเขตดูท่อน้ำทิ้งด่วนครับ', created_at: new Date().toISOString() },
-  { id: 'ACT-003', project_id: 'PRJ-BANGNA', title: 'สั่งถังน้ำยา Top Coat UV Resistant เพิ่ม 12 ถัง', assignee: 'ช่างวิชัย', due_date: '2026-11-10', status: 'OPEN', assigned_by: 'พี่นัท', raw_message: 'ช่างวิชัย เช็คสต็อกท็อปโค้ทแล้วสั่งของได้เลยครับ', created_at: new Date().toISOString() }
-];
-
-const FALLBACK_SEED_DEFECTS = [
-  { id: 'DEF-001', project_id: 'PRJ-LUMPHINI', code: 'DEF-LUM-01', title: 'รอยนูนของยาง SBR บริเวณทางลาดฝั่งทิศตะวันออก', description: 'พบฟองอากาศและรอยนูนเล็กน้อย เกิดจากความชื้นระเหยก่อนกาวแห้ง ต้องขูดซ่อมแซมและบดอัดใหม่', zone: 'โซน A (สไลเดอร์)', severity: 'HIGH', status: 'IN_PROGRESS', assignee: 'ช่างสมหมาย', photo_url: 'https://images.unsplash.com/photo-1581094288338-2314dddb7ece?auto=format&fit=crop&w=400&q=80', due_date: '2026-11-10', created_at: new Date().toISOString() },
-  { id: 'DEF-002', project_id: 'PRJ-LUMPHINI', code: 'DEF-LUM-02', title: 'ขอบยาง EPDM สัมผัสขอบปูนมีช่องว่าง 3 มม.', description: 'เก็บขอบยางด้วย PU Sealant ให้แนบสนิทป้องกันน้ำซึม', zone: 'โซน B (ชิงช้า)', severity: 'MEDIUM', status: 'OPEN', assignee: 'ช่างสมหมาย', photo_url: '', due_date: '2026-11-15', created_at: new Date().toISOString() },
-  { id: 'DEF-003', project_id: 'PRJ-BANGNA', code: 'DEF-BGN-01', title: 'คราบฝุ่นบนผิวคอนกรีตก่อนลงไพรเมอร์', description: 'ต้องใช้เครื่องดูดฝุ่นอุตสาหกรรมทำความสะอาดซ้ำก่อนปาด PU', zone: 'สนามบาสเกตบอลครึ่งหลัง', severity: 'LOW', status: 'RESOLVED', assignee: 'ช่างวิชัย', photo_url: '', due_date: '2026-10-15', created_at: new Date().toISOString() }
-];
-
-const FALLBACK_SEED_DAILY_LOGS = [
-  { id: 'LOG-001', project_id: 'PRJ-LUMPHINI', log_date: '2026-11-04', summary: 'เทและรีดยาง EPDM สีฟ้า โซนเครื่องเล่นหลัก เสร็จไป 95 ตร.ม. คนงาน 14 คน อากาศแจ่มใส', area_sqm_done: 95.0, worker_count: 14, sender_name: 'ช่างสมหมาย', photo_url: 'https://images.unsplash.com/photo-1541888946425-d0fbb1861564?auto=format&fit=crop&w=600&q=80', local_photo_path: '', category: 'WORK_REPORT', synced_to_pc: 1, created_at: '2026-11-04T17:30:00.000Z' },
-  { id: 'LOG-002', project_id: 'PRJ-BANGNA', log_date: '2026-11-04', summary: 'ปาด Silicon PU Elastic layer ชั้นที่ 1 โซนกลางสนาม เสร็จ 180 ตร.ม. คนงาน 18 คน', area_sqm_done: 180.0, worker_count: 18, sender_name: 'ช่างวิชัย', photo_url: '', local_photo_path: '', category: 'WORK_REPORT', synced_to_pc: 1, created_at: '2026-11-04T17:45:00.000Z' }
-];
+// 100% Real reference dataset extracted from Desktop project folders
+const FALLBACK_SEED_PROJECTS = SEED_PROJECTS.projects;
+const FALLBACK_SEED_WBS = SEED_PROJECTS.projects.flatMap(p => p.wbsTasks || []);
+const FALLBACK_SEED_ACTION_ITEMS = [];
+const FALLBACK_SEED_DEFECTS = [];
+const FALLBACK_SEED_DAILY_LOGS = [];
 
 const DEFAULT_SETTINGS = [
   { key: 'group_reply_confirm_toggle', value: 'false' }, // Default silent in groups (Zero Spam rule!)
-  { key: 'unassigned_groups', value: JSON.stringify([
-    { id: 'c_unassigned_demo_1', name: 'กลุ่มผู้รับเหมาปรับพื้นดิน กทม.', joined_at: '2026-11-04T10:00:00.000Z' },
-    { id: 'c_unassigned_demo_2', name: 'กลุ่มตรวจสอบมาตรฐานวัสดุ มอก.', joined_at: '2026-11-04T14:30:00.000Z' }
-  ])},
+  { key: 'unassigned_groups', value: JSON.stringify([]) },
   { key: 'bot_name', value: 'อับดุล' },
   { key: 'system_mode', value: 'PRODUCTION' },
   { key: 'last_sync_timestamp', value: new Date().toISOString() }
 ];
 
-// Helper to load seed_data.js dynamically if created by W-1
+// Helper to load seed_data.js dynamically
 async function loadExternalSeedData() {
-  try {
-    const mod = await import('./seed_data.js');
-    return mod.default || mod;
-  } catch (e) {
-    try {
-      const mod = await import('../../seed_data.js');
-      return mod.default || mod;
-    } catch (e2) {
-      return null;
-    }
-  }
+  return SEED_PROJECTS;
 }
 
 // ----------------------------------------------------------------------
@@ -382,12 +159,27 @@ export async function initDatabase(d1) {
 }
 
 export async function autoSeedIfEmpty(d1) {
-  const checkJatujak = await d1.prepare('SELECT id FROM projects WHERE id = ?').bind('PRJ-JATUJAK').first();
-  const wbsCountRow = await d1.prepare('SELECT COUNT(*) as count FROM wbs_tasks WHERE project_id IS NOT NULL').first();
-  const wbsCount = wbsCountRow ? (wbsCountRow.count || 0) : 0;
+  const checkJatujak = await d1.prepare('SELECT id, budget, line_group_id, status FROM projects WHERE id = ?').bind('PRJ-JATUJAK').first();
+  const projectCountRow = await d1.prepare('SELECT COUNT(*) as count FROM projects').first();
+  const projectCount = projectCountRow ? (projectCountRow.count || 0) : 0;
+  const actionCountRow = await d1.prepare('SELECT COUNT(*) as count FROM action_items').first();
+  const actionCount = actionCountRow ? (actionCountRow.count || 0) : 0;
+  const defectCountRow = await d1.prepare('SELECT COUNT(*) as count FROM defects').first();
+  const defectCount = defectCountRow ? (defectCountRow.count || 0) : 0;
+  const logCountRow = await d1.prepare('SELECT COUNT(*) as count FROM daily_logs').first();
+  const logCount = logCountRow ? (logCountRow.count || 0) : 0;
 
-  if (checkJatujak && Number(wbsCount) >= 50) {
-    return { seeded: false, message: 'Database already populated with 7 genuine projects' };
+  if (
+    projectCount === 7 &&
+    checkJatujak &&
+    Number(checkJatujak.budget) === 1989000 &&
+    checkJatujak.status === 'COMPLETED' &&
+    !checkJatujak.line_group_id &&
+    actionCount === 0 &&
+    defectCount === 0 &&
+    logCount === 0
+  ) {
+    return { seeded: false, message: 'Database already populated with genuine unpaired projects' };
   }
 
   // Clear tables for fresh genuine seed from seed_data.js
@@ -422,8 +214,8 @@ export async function autoSeedIfEmpty(d1) {
       p.name || p.title || '',
       p.short_name || p.name || '',
       p.folder_path || '',
-      p.line_group_id || p.lineGroup || '',
-      p.status || 'ACTIVE',
+      p.line_group_id || null,
+      p.status || 'IN_PROGRESS',
       Number(p.budget) || 0,
       Number(p.target_cost) || 0,
       Number(p.actual_cost) || 0,
@@ -431,7 +223,7 @@ export async function autoSeedIfEmpty(d1) {
       parseFloat(p.actual_progress || p.progress || 0) || 0,
       p.start_date || '2026-01-01',
       p.end_date || '2026-12-31',
-      parseInt(p.daily_workers || p.workers || 0, 10) || 0,
+      parseInt(p.daily_workers || 0, 10) || 0,
       p.specs_summary || '',
       typeof p.materials_json === 'string' ? p.materials_json : JSON.stringify(p.materials_json || p.materials || []),
       typeof p.contractors_json === 'string' ? p.contractors_json : JSON.stringify(p.contractors_json || p.contractors || []),
@@ -541,6 +333,104 @@ export async function autoSeedIfEmpty(d1) {
 }
 
 // ----------------------------------------------------------------------
+// Project Formatter & Helpers
+// ----------------------------------------------------------------------
+export function getProjectStatusLabel(status) {
+  switch (status) {
+    case 'COMPLETED': return 'ส่งมอบงานแล้ว';
+    case 'IN_PROGRESS': return 'กำลังดำเนินการก่อสร้าง';
+    case 'SIGNED_PENDING': return 'เซ็นสัญญาแล้ว (ยังไม่เข้างาน)';
+    case 'SPECIFYING': return 'วางสเปกอยู่ (ยังไม่เซ็นสัญญา)';
+    default: return status || 'กำลังดำเนินการก่อสร้าง';
+  }
+}
+
+export function formatProject(p, allWbs = [], allActions = [], allDefects = [], allLogs = []) {
+  if (!p) return null;
+  const rawId = p.id || '';
+  const projectId = rawId.replace(/^PRJ-/i, '').toLowerCase();
+
+  let materials = [];
+  try {
+    materials = typeof p.materials_json === 'string' ? JSON.parse(p.materials_json || '[]') : (p.materials || p.materials_json || []);
+  } catch (e) {
+    materials = [];
+  }
+
+  let contractors = [];
+  try {
+    contractors = typeof p.contractors_json === 'string' ? JSON.parse(p.contractors_json || '[]') : (p.contractors || p.contractors_json || []);
+  } catch (e) {
+    contractors = [];
+  }
+
+  let sourceFiles = [];
+  try {
+    sourceFiles = typeof p.source_files_json === 'string' ? JSON.parse(p.source_files_json || '[]') : (p.sourceFiles || p.source_files_json || []);
+  } catch (e) {
+    sourceFiles = [];
+  }
+
+  const status = p.status || 'IN_PROGRESS';
+  const statusLabel = p.statusLabel || getProjectStatusLabel(status);
+  const lineGroupId = p.line_group_id || null;
+
+  const pWbs = allWbs.filter(t => t.project_id === p.id || t.project_id?.toLowerCase() === projectId);
+  const pActions = allActions.filter(a => a.project_id === p.id || a.project_id?.toLowerCase() === projectId);
+  const pDefects = allDefects.filter(d => d.project_id === p.id || d.project_id?.toLowerCase() === projectId);
+  const pLogs = allLogs.filter(l => l.project_id === p.id || l.project_id?.toLowerCase() === projectId);
+
+  return {
+    ...p,
+    id: p.id,
+    projectId,
+    name: p.name,
+    short_name: p.short_name || p.name,
+    shortName: p.short_name || p.name,
+    fullName: p.full_name || p.fullName || p.name,
+    full_name: p.full_name || p.fullName || p.name,
+    folder_path: p.folder_path,
+    folderPath: p.folder_path,
+    folderName: p.folder_path ? p.folder_path.split('\\').pop() : p.short_name || p.name,
+    status,
+    statusLabel,
+    line_group_id: lineGroupId,
+    lineGroupId: lineGroupId,
+    line_group_name: lineGroupId ? (p.line_group_name || lineGroupId) : 'ยังไม่ได้ผูกกลุ่ม LINE',
+    lineGroupName: lineGroupId ? (p.line_group_name || lineGroupId) : 'ยังไม่ได้ผูกกลุ่ม LINE',
+    daily_workers: parseInt(p.daily_workers || 0, 10),
+    dailyWorkers: parseInt(p.daily_workers || 0, 10),
+    budget: Number(p.budget) || 0,
+    contractBudget: Number(p.budget) || 0,
+    target_cost: Number(p.target_cost) || 0,
+    targetCost: Number(p.target_cost) || 0,
+    actual_cost: Number(p.actual_cost) || 0,
+    actualCost: Number(p.actual_cost) || 0,
+    planned_progress: parseFloat(p.planned_progress || 0),
+    plannedProgress: parseFloat(p.planned_progress || 0),
+    actual_progress: parseFloat(p.actual_progress || 0),
+    actualProgress: parseFloat(p.actual_progress || 0),
+    start_date: p.start_date,
+    startDate: p.start_date,
+    end_date: p.end_date,
+    endDate: p.end_date,
+    specs_summary: p.specs_summary || '',
+    specsSummary: p.specs_summary || '',
+    materials,
+    contractors,
+    sourceFiles,
+    source_files: sourceFiles,
+    wbsTasks: pWbs,
+    actionItems: pActions,
+    defects: pDefects,
+    dailyLogs: pLogs,
+    photos: [],
+    chatHistory: [],
+    unreadCount: 0
+  };
+}
+
+// ----------------------------------------------------------------------
 // Project Operations
 // ----------------------------------------------------------------------
 export async function getAllProjects(d1, includeArchived = false) {
@@ -548,7 +438,7 @@ export async function getAllProjects(d1, includeArchived = false) {
     ? 'SELECT * FROM projects ORDER BY updated_at DESC'
     : 'SELECT * FROM projects WHERE archived = 0 ORDER BY updated_at DESC';
   const result = await d1.prepare(query).all();
-  return result.results || [];
+  return (result.results || []).map(p => formatProject(p));
 }
 
 export async function getProjectById(d1, id) {
@@ -564,13 +454,14 @@ export async function getProjectById(d1, id) {
        OR line_group_id = ?
     LIMIT 1
   `;
-  return await d1.prepare(sql).bind(
+  const p = await d1.prepare(sql).bind(
     id,
     cleanId,
     'prj-' + normalized,
     normalized,
     id
   ).first();
+  return formatProject(p);
 }
 
 export async function getProjectByLineGroupId(d1, lineGroupId) {
@@ -1102,8 +993,8 @@ export async function getUnassignedGroups(d1) {
 export async function getBootstrapData(d1) {
   await initDatabase(d1);
 
-  const [rawProjects, wbsTasks, actionItems, defects, dailyLogs, settings, unassignedGroups] = await Promise.all([
-    getAllProjects(d1, true),
+  const [rawProjectsResult, wbsTasks, actionItems, defects, dailyLogs, settings, unassignedGroups] = await Promise.all([
+    d1.prepare('SELECT * FROM projects ORDER BY id ASC').all(),
     getWbsTasks(d1),
     getActionItems(d1),
     getDefects(d1),
@@ -1112,22 +1003,10 @@ export async function getBootstrapData(d1) {
     getUnassignedGroups(d1)
   ]);
 
-  const projects = rawProjects.map(p => {
-    const rawId = p.id || '';
-    const projectId = rawId.replace(/^PRJ-/i, '').toLowerCase();
-    const pWbs = wbsTasks.filter(t => t.project_id === p.id || t.project_id?.toLowerCase() === projectId);
-    const pActions = actionItems.filter(a => a.project_id === p.id || a.project_id?.toLowerCase() === projectId);
-    const pDefects = defects.filter(d => d.project_id === p.id || d.project_id?.toLowerCase() === projectId);
-    const pLogs = dailyLogs.filter(l => l.project_id === p.id || l.project_id?.toLowerCase() === projectId);
-    return {
-      ...p,
-      projectId,
-      wbsTasks: pWbs,
-      actionItems: pActions,
-      defects: pDefects,
-      dailyLogs: pLogs
-    };
-  });
+  const rawProjects = rawProjectsResult.results || [];
+  const projects = rawProjects.map(p => 
+    formatProject(p, wbsTasks, actionItems, defects, dailyLogs)
+  );
 
   return {
     projects,

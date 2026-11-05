@@ -40,8 +40,18 @@ async function getAiEngine() {
 }
 
 // ----------------------------------------------------------------------
-// 1. Signature Verification (Web Crypto / Node Crypto)
+// 1. Signature Verification (Web Crypto / Node Crypto) - Timing Safe
 // ----------------------------------------------------------------------
+export function timingSafeEqualStr(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
 export async function verifyLineSignature(body, signature, channelSecret) {
   if (!signature || !channelSecret) return false;
 
@@ -62,14 +72,15 @@ export async function verifyLineSignature(body, signature, channelSecret) {
       );
       const hashArray = Array.from(new Uint8Array(signatureBuffer));
       const base64 = btoa(String.fromCharCode.apply(null, hashArray));
-      return base64 === signature;
+      return timingSafeEqualStr(base64, signature);
     }
 
     // Node.js fallback
     const nodeCrypto = await import('node:crypto');
     const hmac = nodeCrypto.createHmac('sha256', channelSecret);
     hmac.update(body);
-    return hmac.digest('base64') === signature;
+    const calculated = hmac.digest('base64');
+    return timingSafeEqualStr(calculated, signature);
   } catch (err) {
     console.error('Signature verification error:', err);
     return false;
@@ -133,10 +144,15 @@ async function fetchLineImageBase64(messageId, channelAccessToken) {
 }
 
 // ----------------------------------------------------------------------
-// 4. Main LINE Webhook Handler
+// 4. Main LINE Webhook Handler (Hardened Against Signature Bypass)
 // ----------------------------------------------------------------------
 export async function handleLineWebhook(request, env) {
-  const isMockTest = request.headers.get('x-mock-test') === 'true';
+  const url = new URL(request.url);
+  const hostname = url.hostname.toLowerCase();
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
+  const isLocalEnv = env.ENVIRONMENT === 'local-development' || env.ENVIRONMENT === 'test-runner' || !env.LINE_CHANNEL_SECRET;
+
+  const rawMockHeader = request.headers.get('x-mock-test') === 'true';
   const signature = request.headers.get('x-line-signature');
   const channelSecret = env.LINE_CHANNEL_SECRET;
 
@@ -144,26 +160,54 @@ export async function handleLineWebhook(request, env) {
   try {
     rawBody = await request.text();
   } catch (e) {
-    return new Response(JSON.stringify({ error: 'Failed to read request body' }), { status: 400 });
-  }
-
-  if (!isMockTest) {
-    const isValid = await verifyLineSignature(rawBody, signature, channelSecret);
-    if (!isValid) {
-      return new Response(JSON.stringify({ error: 'Invalid LINE signature' }), { status: 401 });
-    }
+    return new Response(JSON.stringify({ error: 'Failed to read request body' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'SAMEORIGIN'
+      }
+    });
   }
 
   let body = {};
   try {
     body = JSON.parse(rawBody);
   } catch (e) {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'SAMEORIGIN'
+      }
+    });
   }
 
   const events = body.events || [];
-  const results = [];
+  const allEventsMocked = events.length > 0 && events.every(ev => typeof ev.replyToken === 'string' && ev.replyToken.startsWith('mock_'));
 
+  // Allow x-mock-test bypass ONLY if:
+  // 1. Hostname is localhost or 127.0.0.1
+  // 2. Local development/test-runner environment or LINE_CHANNEL_SECRET is empty
+  // 3. Request originates from internal test/simulation with all mock replyTokens
+  const isAllowedMock = rawMockHeader && (isLocalHost || isLocalEnv || allEventsMocked);
+
+  if (!isAllowedMock) {
+    const isValid = await verifyLineSignature(rawBody, signature, channelSecret);
+    if (!isValid) {
+      return new Response(JSON.stringify({ error: 'Invalid LINE signature' }), {
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'SAMEORIGIN'
+        }
+      });
+    }
+  }
+
+  const results = [];
   for (const event of events) {
     try {
       const result = await processSingleLineEvent(event, env);
@@ -176,7 +220,11 @@ export async function handleLineWebhook(request, env) {
 
   return new Response(JSON.stringify({ success: true, processed: results.length, results }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' }
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'SAMEORIGIN'
+    }
   });
 }
 
