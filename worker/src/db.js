@@ -30,8 +30,11 @@ async function loadExternalSeedData() {
 // ----------------------------------------------------------------------
 // Database Initialization & Auto-Seed
 // ----------------------------------------------------------------------
-export async function initDatabase(d1) {
+let isDbInitialized = false;
+
+export async function initDatabase(d1, force = false) {
   if (!d1) throw new Error('Database instance (d1) is required');
+  if (isDbInitialized && !force) return;
 
   // Create tables if not exists
   const tables = [
@@ -156,6 +159,7 @@ export async function initDatabase(d1) {
 
   // Auto-Seed if empty
   await autoSeedIfEmpty(d1);
+  isDbInitialized = true;
 }
 
 export async function autoSeedIfEmpty(d1) {
@@ -173,7 +177,7 @@ export async function autoSeedIfEmpty(d1) {
     projectCount === 7 &&
     checkJatujak &&
     Number(checkJatujak.budget) === 1989000 &&
-    checkJatujak.status === 'IN_PROGRESS' &&
+    checkJatujak.status === 'COMPLETED' &&
     !checkJatujak.line_group_id &&
     actionCount === 0 &&
     defectCount === 0 &&

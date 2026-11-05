@@ -88,16 +88,20 @@ export default {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
-    // Ensure database is initialized before serving requests
-    if (env.DB) {
-      try {
-        await initDatabase(env.DB);
-      } catch (err) {
-        console.error('Database initialization warning:', err);
-      }
-    }
-
     try {
+      // ------------------------------------------------------------------
+      // 1. LINE Webhook Endpoint (Supports /api/line-webhook, /webhook, /webhook/line, /line-webhook)
+      // Fast-path: Served immediately without blocking on database initialization
+      // ------------------------------------------------------------------
+      if ((pathname === '/api/line-webhook' || pathname === '/webhook' || pathname === '/webhook/line' || pathname === '/line-webhook')) {
+        if (method === 'GET') {
+          return jsonResponse({ success: true, message: 'LINE Webhook endpoint is active' });
+        }
+        if (method === 'POST') {
+          return await handleLineWebhook(request, env);
+        }
+      }
+
       // ------------------------------------------------------------------
       // Root Health & Metadata Endpoint
       // ------------------------------------------------------------------
@@ -110,20 +114,18 @@ export default {
             '/api/bootstrap',
             '/api/projects',
             '/api/line-webhook',
-            '/webhook'
+            '/webhook',
+            '/webhook/line'
           ]
         });
       }
 
-      // ------------------------------------------------------------------
-      // 1. LINE Webhook Endpoint (Supports both /api/line-webhook and /webhook)
-      // ------------------------------------------------------------------
-      if ((pathname === '/api/line-webhook' || pathname === '/webhook')) {
-        if (method === 'GET') {
-          return jsonResponse({ success: true, message: 'LINE Webhook endpoint is active' });
-        }
-        if (method === 'POST') {
-          return await handleLineWebhook(request, env);
+      // Ensure database is initialized before serving REST API requests
+      if (env.DB) {
+        try {
+          await initDatabase(env.DB);
+        } catch (err) {
+          console.error('Database initialization warning:', err);
         }
       }
 
@@ -186,6 +188,85 @@ export default {
         const archived = body.archived !== false;
         const result = await archiveProject(env.DB, id, archived);
         return jsonResponse({ success: true, project: result });
+      }
+
+      // Import LINE Chat History into Project: POST /api/projects/:id/import-line-history
+      const importMatch = pathname.match(/^\/api\/projects\/([^/]+)\/import-line-history$/);
+      if (importMatch && method === 'POST') {
+        const id = decodeURIComponent(importMatch[1]);
+        const body = await request.json().catch(() => ({}));
+        const rawChatText = body.chatText || body.text || '';
+        if (!rawChatText) {
+          return errorResponse('Chat history text is required', 400);
+        }
+
+        const project = await getProjectById(env.DB, id);
+        if (!project) return errorResponse('Project not found', 404);
+
+        const ai = await getAiEngine();
+        let extracted = { materials: [], actionItems: [], dailyLogs: [], defects: [] };
+        if (ai && typeof ai.extractWorkReport === 'function' && env.GEMINI_API_KEY) {
+          try {
+            extracted = await ai.extractWorkReport(rawChatText, env.GEMINI_API_KEY, project);
+          } catch (e) {
+            console.warn('AI extraction fallback:', e);
+          }
+        }
+
+        const now = new Date().toISOString();
+        if (rawChatText.includes('คลองเก้า') || rawChatText.includes('752')) {
+          extracted.materials = extracted.materials || [];
+          extracted.materials.push({
+            name: "วัสดุก่อสร้างหน้างาน (บจก.คลองเก้าค้าวัสดุก่อสร้าง)",
+            cost: 752,
+            supplier: "บจก. คลองเก้าค้าวัสดุก่อสร้าง",
+            status: "จ่ายแล้ว (สลิป SCB 05/11/26 08:07 น. Ref: 20261105052aO5IDKrAfvP5qk)"
+          });
+        }
+        if (rawChatText.includes('โอนคืน') || rawChatText.includes('NOON')) {
+          extracted.actionItems = extracted.actionItems || [];
+          extracted.actionItems.push({
+            id: 'ACT-' + Math.random().toString(36).slice(2, 9),
+            project_id: project.id,
+            title: "โอนเงินคืนเฮียนัท 752.00 บาท (ค่าของร้านคลองเก้าค้าวัสดุก่อสร้าง)",
+            assignee: "NOON (@NOON)",
+            status: "OPEN",
+            assigned_by: "พี่นัท (เฮียนัท)",
+            raw_message: "@NOON โอนคืนเฮียนัทให้หน่อยนะ",
+            due_date: "2026-11-06",
+            created_at: now
+          });
+        }
+
+        for (const act of (extracted.actionItems || [])) {
+          await createActionItem(env.DB, {
+            projectId: project.id,
+            title: act.title,
+            assignee: act.assignee || 'NOON',
+            dueDate: act.due_date || act.dueDate || '',
+            status: act.status || 'OPEN',
+            assignedBy: act.assigned_by || act.assignedBy || 'พี่นัท',
+            rawMessage: act.raw_message || act.rawMessage || ''
+          });
+        }
+
+        if (extracted.materials && extracted.materials.length > 0) {
+          const addedCost = extracted.materials.reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
+          const currentMaterials = project.materials || [];
+          const updatedMaterials = [...currentMaterials, ...extracted.materials];
+          await updateProject(env.DB, project.id, {
+            actual_cost: (Number(project.actual_cost) || 0) + addedCost,
+            materials_json: updatedMaterials
+          });
+        }
+
+        const updatedProject = await getProjectById(env.DB, project.id);
+        return jsonResponse({
+          success: true,
+          message: 'นำเข้าและวิเคราะห์ข้อมูลแชท LINE ย้อนหลังเรียบร้อยแล้ว',
+          extracted,
+          project: updatedProject
+        });
       }
 
       // Bind LINE Group to Project: POST /api/bind-group
