@@ -485,6 +485,110 @@ export default {
       }
 
       // ------------------------------------------------------------------
+      // 8.1 Google Colab Hybrid AI Brain Settings & Status Ping
+      // ------------------------------------------------------------------
+      if (pathname === '/api/settings/colab-brain') {
+        if (method === 'GET') {
+          const colabUrl = (await getSetting(env.DB, 'colab_llm_url', '')) || env.COLAB_LLM_URL || '';
+          if (!colabUrl) {
+            return jsonResponse({
+              success: true,
+              colabUrl: '',
+              online: false,
+              models: [],
+              message: 'Google Colab GPU Tunnel URL ยังไม่ได้ตั้งค่า (รันด้วย Cloud Gemini 2.5 Flash เท่านั้น)'
+            });
+          }
+
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const cleanUrl = colabUrl.replace(/\/+$/, '');
+            const res = await fetch(`${cleanUrl}/api/tags`, {
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+              const data = await res.json();
+              return jsonResponse({
+                success: true,
+                colabUrl: cleanUrl,
+                online: true,
+                models: data.models || [],
+                message: 'Google Colab GPU LLM ออนไลน์พร้อมใช้งาน'
+              });
+            } else {
+              return jsonResponse({
+                success: true,
+                colabUrl: cleanUrl,
+                online: false,
+                models: [],
+                error: `HTTP ${res.status}: ${res.statusText}`
+              });
+            }
+          } catch (err) {
+            return jsonResponse({
+              success: true,
+              colabUrl: colabUrl.replace(/\/+$/, ''),
+              online: false,
+              models: [],
+              error: err.name === 'AbortError' ? 'Ping Timeout (เกิน 3 วินาที)' : err.message
+            });
+          }
+        }
+
+        if (method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const rawUrl = (body.colabUrl || body.colab_llm_url || '').trim();
+          const cleanUrl = rawUrl.replace(/\/+$/, '');
+
+          await setSetting(env.DB, 'colab_llm_url', cleanUrl);
+
+          if (!cleanUrl) {
+            return jsonResponse({
+              success: true,
+              colabUrl: '',
+              online: false,
+              message: 'ล้างค่า Colab LLM URL เรียบร้อยแล้ว (ใช้ Cloud Gemini 2.5 Flash เท่านั้น)'
+            });
+          }
+
+          // Test ping with 3s timeout
+          let pingOk = false;
+          let models = [];
+          let errorMsg = null;
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const res = await fetch(`${cleanUrl}/api/tags`, {
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (res.ok) {
+              const data = await res.json();
+              pingOk = true;
+              models = data.models || [];
+            } else {
+              errorMsg = `HTTP ${res.status}`;
+            }
+          } catch (err) {
+            errorMsg = err.name === 'AbortError' ? 'Ping Timeout (3s)' : err.message;
+          }
+
+          return jsonResponse({
+            success: true,
+            colabUrl: cleanUrl,
+            online: pingOk,
+            models,
+            error: errorMsg,
+            message: pingOk ? 'เชื่อมต่อ Google Colab GPU สำเร็จ!' : `บันทึก URL แล้วแต่ยังไม่ตอบสนอง (${errorMsg || 'ออฟไลน์'})`
+          });
+        }
+      }
+
+
+      // ------------------------------------------------------------------
       // 9. Web Chat Assistant ("คุยกับอับดุล")
       // ------------------------------------------------------------------
       if (pathname === '/api/chat' && method === 'POST') {
@@ -495,11 +599,14 @@ export default {
         // Check if AI Engine is available
         const ai = await getAiEngine();
         if (ai && typeof ai.answerProjectQuestion === 'function') {
+          const allProjects = await getAllProjects(env.DB, false);
           const answer = await ai.answerProjectQuestion({
             question: message,
-            projectId,
+            currentGroupProjectId: projectId,
+            allProjects,
             history,
-            env
+            env,
+            d1: env.DB
           });
           return jsonResponse({ success: true, answer });
         }

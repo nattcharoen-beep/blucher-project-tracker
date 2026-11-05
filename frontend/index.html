@@ -166,6 +166,12 @@
           <div class="w-7 h-3.5 sm:w-8 sm:h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 sm:after:h-3.5 after:w-3 sm:after:w-3.5 after:transition-all peer-checked:bg-sky-500"></div>
         </label>
       </div>
+
+      <!-- Hybrid AI Brain Modal Opener -->
+      <button onclick="openBotSettingsModal()" class="px-2.5 py-1.5 bg-[#15263f] hover:bg-[#1a2f4d] text-amber-300 border border-slate-700/80 hover:border-amber-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all flex-shrink-0 font-kanit" title="ตั้งค่าสมอง AI ไฮบริด (Google Colab GPU + Gemini 2.5)">
+        <i class="fa-solid fa-brain text-amber-400 text-xs"></i>
+        <span class="hidden lg:inline text-[11px]">สมองไฮบริด</span>
+      </button>
     </div>
 
   </header>
@@ -1401,7 +1407,106 @@
     </div>
   </div>
 
+
+  <!-- Modal 6: Hybrid AI Brain Settings (Google Colab GPU + Gemini 2.5) -->
+  <div id="modalBotSettings" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-scale-in">
+      <!-- Header -->
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-white flex items-center justify-center shadow-md flex-shrink-0">
+            <i class="fa-solid fa-brain text-lg"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold font-kanit text-slate-900 flex items-center gap-2">
+              ตั้งค่าสมอง AI ไฮบริด (Hybrid Colab + Gemini)
+            </h3>
+            <p class="text-[11px] text-slate-500">Cloud Gemini 2.5 Flash + Google Colab GPU (0% CPU/GPU บนคอม)</p>
+          </div>
+        </div>
+        <button onclick="closeBotSettingsModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Status Cards Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <!-- Cloud Gemini Status -->
+        <div class="p-3 rounded-2xl bg-sky-50 border border-sky-100 flex items-start gap-3">
+          <div class="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-cloud text-sm"></i>
+          </div>
+          <div>
+            <div class="font-bold font-kanit text-slate-800 flex items-center gap-1.5">
+              <span>Cloud Gemini 2.5 Flash</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            </div>
+            <p class="text-[11px] text-sky-700 mt-0.5">ทำงานบน Google Cloud 24/7 (Vision & Fast Fallback ~1.2s)</p>
+          </div>
+        </div>
+
+        <!-- Google Colab GPU Status -->
+        <div class="p-3 rounded-2xl bg-amber-50 border border-amber-100 flex items-start gap-3">
+          <div class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-microchip text-sm"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold font-kanit text-slate-800 flex items-center justify-between">
+              <span>Google Colab GPU</span>
+              <span id="colabStatusBadge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200 text-slate-600">กำลังตรวจสอบ...</span>
+            </div>
+            <p id="colabStatusSubtext" class="text-[11px] text-amber-700 mt-0.5 truncate">Ollama (Qwen2.5:7b) บน Free T4 GPU</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tunnel URL Input -->
+      <div class="space-y-1.5 text-xs">
+        <label class="block font-bold text-slate-700 font-kanit">Cloudflare Tunnel URL จาก Google Colab:</label>
+        <div class="flex gap-2">
+          <input type="text" id="colabTunnelUrlInput" placeholder="เช่น https://xxxx-xxxx.trycloudflare.com" class="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+          <button onclick="testColabConnection()" id="btnTestColab" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs flex items-center gap-1 transition-all whitespace-nowrap">
+            <i class="fa-solid fa-plug text-xs"></i>
+            <span>ทดสอบ</span>
+          </button>
+          <button onclick="saveColabSettings()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs flex items-center gap-1 shadow-sm transition-all whitespace-nowrap font-kanit">
+            <i class="fa-solid fa-floppy-disk text-xs"></i>
+            <span>บันทึก</span>
+          </button>
+        </div>
+        <p id="colabTestFeedback" class="text-[11px] text-slate-500"></p>
+      </div>
+
+      <!-- How-To & Download Box -->
+      <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-800 flex items-center gap-1.5 font-kanit">
+            <i class="fa-brands fa-google text-amber-500"></i>
+            วิธีเปิดรันบน Google Colab (3 นาทีเสร็จ):
+          </span>
+          <a href="Blucher_Colab_LLM_Brain.ipynb" download class="text-[11px] text-sky-600 hover:text-sky-700 font-semibold flex items-center gap-1">
+            <i class="fa-solid fa-download text-xs"></i>
+            ดาวน์โหลด .ipynb
+          </a>
+        </div>
+        <ol class="list-decimal list-inside space-y-1 text-[11px] text-slate-600 leading-relaxed">
+          <li>เปิดเว็บ <a href="https://colab.research.google.com" target="_blank" class="text-sky-600 underline font-semibold">Google Colab</a> แล้วอัปโหลดไฟล์ <span class="font-mono bg-slate-200 px-1 py-0.5 rounded">Blucher_Colab_LLM_Brain.ipynb</span></li>
+          <li>กดเมนู <b>Runtime > Run all</b> (ใช้ GPU ฟรีของ Google)</li>
+          <li>สคริปต์ในสมุดงานจะส่ง Tunnel URL มายังหน้านี้โดยอัตโนมัติ ไม่ต้องคัดลอกเอง!</li>
+        </ol>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+        <span class="text-[11px] text-slate-400">⚡ 0% Load บนคอมพิวเตอร์ ทำงานบน Cloud GPU ทั้งหมด</span>
+        <button onclick="closeBotSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-all">
+          ปิดหน้าต่าง
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Application Logic JavaScript -->
-  <script src="app.js?v=20261105-v6"></script>
+  <script src="app.js?v=20261105-v7"></script>
 </body>
 </html>

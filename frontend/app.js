@@ -4040,6 +4040,120 @@ function toggleActionItem(projId, actId) {
   return toggleActionItemComplete(projId, actId);
 }
 
+
+// =============================================================================
+// HYBRID AI BRAIN SETTINGS (GOOGLE COLAB GPU + GEMINI 2.5 FLASH)
+// =============================================================================
+async function openBotSettingsModal() {
+  const modal = document.getElementById("modalBotSettings");
+  if (modal) modal.classList.remove("hidden");
+  await checkColabBrainStatus();
+}
+
+function closeBotSettingsModal() {
+  const modal = document.getElementById("modalBotSettings");
+  if (modal) modal.classList.add("hidden");
+}
+
+async function checkColabBrainStatus() {
+  const badge = document.getElementById("colabStatusBadge");
+  const subtext = document.getElementById("colabStatusSubtext");
+  const input = document.getElementById("colabTunnelUrlInput");
+
+  if (badge) {
+    badge.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200 text-slate-600";
+    badge.innerText = "กำลังตรวจสอบ...";
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/colab-brain`);
+    if (res.ok) {
+      const data = await res.json();
+      if (input && data.colabUrl) {
+        input.value = data.colabUrl;
+      }
+      if (data.online) {
+        if (badge) {
+          badge.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700";
+          badge.innerText = "🟢 ออนไลน์ (Online)";
+        }
+        if (subtext) {
+          const modelName = data.models?.[0]?.name || "Qwen2.5:7b";
+          subtext.innerText = `Ollama (${modelName}) พร้อมทำงานร่วมกับ Gemini 2.5`;
+        }
+      } else {
+        if (badge) {
+          badge.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-700";
+          badge.innerText = data.colabUrl ? "🔴 ออฟไลน์ (Offline)" : "⚪ ยังไม่ได้เชื่อมต่อ";
+        }
+        if (subtext) {
+          subtext.innerText = data.colabUrl ? `ไม่สามารถติดต่อ Tunnel URL ได้ (${data.error || 'Timeout'})` : "รันผ่าน Cloud Gemini 2.5 Flash เป็นหลัก";
+        }
+      }
+    }
+  } catch (err) {
+    if (badge) {
+      badge.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200 text-slate-600";
+      badge.innerText = "ไม่สามารถเชื่อมต่อได้";
+    }
+  }
+}
+
+async function testColabConnection() {
+  const input = document.getElementById("colabTunnelUrlInput");
+  const feedback = document.getElementById("colabTestFeedback");
+  const btn = document.getElementById("btnTestColab");
+  const url = (input?.value || "").trim();
+
+  if (!url) {
+    if (feedback) feedback.innerText = "⚠️ กรุณากรอก Cloudflare Tunnel URL ก่อนกดทดสอบ";
+    return;
+  }
+
+  if (feedback) feedback.innerText = "⏳ กำลังทดสอบเชื่อมต่อไปยัง Google Colab GPU...";
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/colab-brain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ colabUrl: url })
+    });
+
+    const data = await res.json();
+    if (data.online) {
+      if (feedback) feedback.innerHTML = `<span class="text-emerald-600 font-semibold">✅ เชื่อมต่อ Google Colab สำเร็จ! โมเดล: ${data.models?.[0]?.name || 'qwen2.5:7b'}</span>`;
+      showToast("เชื่อมต่อ Google Colab GPU สำเร็จ!", "success");
+    } else {
+      if (feedback) feedback.innerHTML = `<span class="text-rose-500">❌ ไม่สามารถเชื่อมต่อได้: ${data.error || 'Offline'}</span>`;
+      showToast("ไม่สามารถติดต่อ Colab GPU ได้", "warning");
+    }
+    await checkColabBrainStatus();
+  } catch (err) {
+    if (feedback) feedback.innerText = `❌ ข้อผิดพลาด: ${err.message}`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function saveColabSettings() {
+  const input = document.getElementById("colabTunnelUrlInput");
+  const url = (input?.value || "").trim();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/colab-brain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ colabUrl: url })
+    });
+    const data = await res.json();
+    showToast(data.message || "บันทึกการตั้งค่าสมองไฮบริดเรียบร้อยครับ", "success");
+    await checkColabBrainStatus();
+  } catch (err) {
+    showToast(`เกิดข้อผิดพลาด: ${err.message}`, "error");
+  }
+}
+
 // Bind all interactive functions to window for 100% reliable HTML onclick handlers
 if (typeof window !== "undefined") {
   window.appState = appState;
@@ -4102,6 +4216,11 @@ if (typeof window !== "undefined") {
     openImportChatModal,
     closeImportChatModal,
     submitImportChat,
+    openBotSettingsModal,
+    closeBotSettingsModal,
+    checkColabBrainStatus,
+    testColabConnection,
+    saveColabSettings,
     renderWbsTable,
     renderMasterDossier,
     renderDossierTab

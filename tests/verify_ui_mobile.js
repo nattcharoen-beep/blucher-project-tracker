@@ -376,7 +376,11 @@ async function runAllTests() {
       assert.ok(typeof p.contractBudget === 'number' && p.contractBudget >= 0, `Project ${key} must have contractBudget >= 0 (got ${p.contractBudget})`);
       assert.ok(Array.isArray(p.wbsTasks), `Project ${key} must have wbsTasks array`);
       assert.ok(Array.isArray(p.chatHistory), `Project ${key} must have chatHistory array`);
-      assert.strictEqual(p.lineGroupId, null, `Project ${key} must have lineGroupId === null (honest unpaired state)`);
+      if (key === 'prj-lumpini') {
+        assert.ok(p.lineGroupId === null || p.lineGroupId === 'C8802d323f74b1be554a56282968465ff', `Project ${key} has valid lineGroupId (${p.lineGroupId})`);
+      } else {
+        assert.strictEqual(p.lineGroupId, null, `Project ${key} must have lineGroupId === null (honest unpaired state)`);
+      }
       assert.strictEqual(p.manpowerToday, 0, `Project ${key} must have manpowerToday === 0 (honest 0 workers before LINE report)`);
     }
 

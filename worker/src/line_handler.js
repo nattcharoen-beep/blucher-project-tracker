@@ -345,9 +345,34 @@ export async function processSingleLineEvent(event, env) {
     // -------------------------------------------------------------
     if (msgType === 'text') {
       const text = (message.text || '').trim();
+      const projectId = project ? project.id : 'PRJ-UNASSIGNED';
+
+      // Fetch sender display name if possible
+      let senderName = 'สมาชิกในกลุ่ม';
+      if (userId && channelAccessToken) {
+        try {
+          const profRes = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+            headers: { Authorization: `Bearer ${channelAccessToken}` }
+          });
+          if (profRes.ok) {
+            const profData = await profRes.json();
+            if (profData.displayName) senderName = profData.displayName;
+          }
+        } catch (e) {}
+      }
+
+      // 100% Full Chat History: Record EVERY single chat message into daily_logs in D1
+      await createDailyLog(d1, {
+        project_id: projectId,
+        summary: text,
+        worker_count: 0,
+        area_sqm_done: 0,
+        sender_name: senderName,
+        category: (ai && typeof ai.isChitchatOrNoise === 'function' && ai.isChitchatOrNoise(text)) ? 'CHITCHAT' : 'CHAT'
+      });
 
       // Step 1: Use direct fast binding check or W-3 AI engine command parsing
-      const cleanBindText = text.replace(/^@?(?:อับดุล|บอท|abdul|bot)\s*/i, '').trim();
+      const cleanBindText = text.replace(/^@?(?:blucherlinechatbot|blucher|อับดุล|บอท|abdul|bot)\s*/i, '').trim();
       const bindMatch = cleanBindText.match(/(?:ผูก|เชื่อม)(?:กับ|เข้ากับ)?(?:โครงการ|กลุ่มนี้กับ|กลุ่มกับ|ไซต์|กลุ่ม)?\s*(.+)/i) ||
                         cleanBindText.match(/^(?:ผูก|เชื่อม)\s*(จตุจักร|บางนา|บางแค|สะพานสูง|ลุมพินี|ปราจีน|แม่ฮ่องสอน|ศนท|อบต|พี่บอม)/i);
       let parsedCmd = null;
@@ -357,7 +382,7 @@ export async function processSingleLineEvent(event, env) {
         parsedCmd = ai.parseWakeWordAndCommand(text);
       } else {
         // Fallback command parser
-        const isWakeWord = /^(?:@?อับดุล|@?บอท)/i.test(text) || text.includes('อับดุล');
+        const isWakeWord = /^(?:@?blucherlinechatbot|@?blucher|@?อับดุล|@?บอท)/i.test(text) || text.includes('อับดุล');
         if (isWakeWord && /(สรุป|รายงาน)/i.test(text)) {
           parsedCmd = { type: 'DAILY_SUMMARY' };
         } else if (isWakeWord || !isGroup) {
@@ -446,7 +471,8 @@ export async function processSingleLineEvent(event, env) {
             question: questionText,
             currentGroupProjectId: project?.id || null,
             allProjects,
-            env
+            env,
+            d1
           });
         } else {
           // Fallback question answering
@@ -473,28 +499,48 @@ export async function processSingleLineEvent(event, env) {
         const projectId = project ? project.id : 'PRJ-UNASSIGNED';
         let extractedSomething = false;
 
-        // Try W-3 Silent Site Extractor if available
+        // Try Hybrid Silent Site Extractor if available
+        const fullHistory = await getDailyLogs(d1, projectId);
         if (ai && typeof ai.extractSilentSiteUpdate === 'function') {
           try {
             const extraction = await ai.extractSilentSiteUpdate({
               text,
               project,
-              senderName: 'ช่างหน้างาน',
-              env
+              senderName,
+              env,
+              d1,
+              recentContext: fullHistory
             });
 
             if (extraction && extraction.hasSiteUpdate) {
               extractedSomething = true;
 
-              // Save Daily Log
-              await createDailyLog(d1, {
-                project_id: projectId,
-                summary: extraction.summary || text,
-                area_sqm_done: extraction.areaSqm || 0,
-                worker_count: extraction.workerCount || 0,
-                sender_name: 'ช่างหน้างาน (LINE)',
-                category: extraction.category || 'WORK_REPORT'
-              });
+              // Save Daily Log based on category
+              if (extraction.category === 'PAYMENT_LOG') {
+                const amtStr = extraction.amount ? `${Number(extraction.amount).toLocaleString()} บาท` : '';
+                await createDailyLog(d1, {
+                  project_id: projectId,
+                  summary: `💰 ${extraction.title || text} (ยอดเงิน: ${amtStr || '-'})`,
+                  worker_count: 0,
+                  area_sqm_done: 0,
+                  sender_name: senderName,
+                  category: 'PAYMENT_LOG'
+                });
+                if (extraction.amount && Number(extraction.amount) > 0) {
+                  await d1.prepare('UPDATE projects SET actual_cost = actual_cost + ?, updated_at = ? WHERE id = ?')
+                    .bind(Number(extraction.amount), new Date().toISOString(), projectId)
+                    .run();
+                }
+              } else {
+                await createDailyLog(d1, {
+                  project_id: projectId,
+                  summary: extraction.summary || extraction.title || text,
+                  area_sqm_done: extraction.areaSqm || 0,
+                  worker_count: extraction.workerCount || 0,
+                  sender_name: senderName,
+                  category: extraction.category || 'WORK_REPORT'
+                });
+              }
 
               // Save Defects if detected
               if (Array.isArray(extraction.defects)) {
@@ -676,6 +722,24 @@ export async function processSingleLineEvent(event, env) {
               project,
               env
             });
+
+            if (visionResult && visionResult.category === 'PAYMENT_SLIP') {
+              const amtStr = visionResult.amount ? `${Number(visionResult.amount).toLocaleString()} บาท` : '';
+              await createDailyLog(d1, {
+                project_id: projectId,
+                summary: `🧾 สลิปโอนเงิน: ${amtStr} ${visionResult.vendorName || ''} (Ref: ${visionResult.refCode || '-'})`.trim(),
+                worker_count: 0,
+                area_sqm_done: 0,
+                sender_name: 'ช่างหน้างาน (LINE)',
+                photo_url: photoProxyUrl,
+                category: 'PAYMENT_SLIP'
+              });
+              if (visionResult.amount && Number(visionResult.amount) > 0) {
+                await d1.prepare('UPDATE projects SET actual_cost = actual_cost + ?, updated_at = ? WHERE id = ?')
+                  .bind(Number(visionResult.amount), new Date().toISOString(), projectId)
+                  .run();
+              }
+            }
 
             if (visionResult && visionResult.detectedDefects?.length > 0) {
               for (const d of visionResult.detectedDefects) {
