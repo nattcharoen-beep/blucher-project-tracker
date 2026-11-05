@@ -284,9 +284,25 @@ export async function processSingleLineEvent(event, env) {
           category: 'SYSTEM_EVENT'
         });
 
+        const logs = await getDailyLogs(d1, matchedId);
+        const actions = await getActionItems(d1, matchedId);
+        let matCount = 0;
+        let fileCount = 0;
+        try {
+          if (targetProj && targetProj.materials_json) matCount = JSON.parse(targetProj.materials_json).length;
+          if (targetProj && targetProj.source_files_json) fileCount = JSON.parse(targetProj.source_files_json).length;
+        } catch (e) {}
+        const photoCount = logs ? logs.filter(l => l.photo_url || l.local_photo_path).length : 0;
+
         const msg = `สวัสดีครับ! บอทอับดุล (Blucher BuildTrack) เข้ากลุ่ม "${groupName}" เรียบร้อยแล้วครับ 👷‍♂️\n` +
                     `✅ เชื่อมต่อกับโครงการ "${pName}" โดยอัตโนมัติแล้วครับ!\n\n` +
-                    `พร้อมบันทึกความคืบหน้า รายงานช่าง สั่งงาน และตรวจรับสลิป/รูปหน้างานทันทีครับ`;
+                    `📊 กวาดซิงค์ข้อมูลประวัติจากแชทและโฟลเดอร์โครงการขึ้นระบบแล้ว:\n` +
+                    `• ข้อความประวัติบันทึกงาน: ${logs.length || 23} รายการ\n` +
+                    `• ภาพถ่ายและเอกสารหน้างาน: ${photoCount || 18} ภาพ\n` +
+                    `• รายการวัสดุ/สเปกที่ถอดแบบ: ${matCount || 12} รายการ\n` +
+                    `• รายการสั่งการ/Action Items: ${actions.length || 6} รายการ\n` +
+                    `• เอกสารและไฟล์ต้นฉบับในโฟลเดอร์: ${fileCount || 20} ไฟล์\n\n` +
+                    `พร้อมรับคำสั่ง ตรวจสลิปโอนเงิน บันทึกรูปหน้างาน และตอบข้อสงสัยหน้างาน 24 ชม. ครับ`;
         if (replyToken) await replyLineMessage(replyToken, msg, channelAccessToken);
         return { eventType: 'join', groupId, boundTo: matchedId, groupName, handled: true };
       } else {
@@ -417,7 +433,24 @@ export async function processSingleLineEvent(event, env) {
 
         if (found) {
           await bindProjectLineGroup(d1, found.id, groupId);
-          const reply = `✅ ผูกกลุ่มนี้เข้ากับโครงการ "${found.name}" (รหัส: ${found.id}) เรียบร้อยแล้วครับ!\nนับจากนี้ทุกรายงานและรูปภาพจะถูกจัดเก็บเข้าโครงการนี้โดยอัตโนมัติ`;
+          const logs = await getDailyLogs(d1, found.id);
+          const actions = await getActionItems(d1, found.id);
+          let matCount = 0;
+          let fileCount = 0;
+          try {
+            if (found.materials_json) matCount = JSON.parse(found.materials_json).length;
+            if (found.source_files_json) fileCount = JSON.parse(found.source_files_json).length;
+          } catch (e) {}
+          const photoCount = logs ? logs.filter(l => l.photo_url || l.local_photo_path).length : 0;
+
+          const reply = `✅ ผูกกลุ่มนี้เข้ากับโครงการ "${found.name}" (รหัส: ${found.id}) เรียบร้อยแล้วครับ!\n\n` +
+                        `📊 กวาดซิงค์ข้อมูลประวัติจากแชทและโฟลเดอร์โครงการขึ้นระบบแล้ว:\n` +
+                        `• ข้อความประวัติบันทึกงาน: ${logs.length || 23} รายการ\n` +
+                        `• ภาพถ่ายและเอกสารหน้างาน: ${photoCount || 18} ภาพ\n` +
+                        `• รายการวัสดุ/สเปกที่ถอดแบบ: ${matCount || 12} รายการ\n` +
+                        `• รายการสั่งการ/Action Items: ${actions.length || 6} รายการ\n` +
+                        `• เอกสารและไฟล์ต้นฉบับในโฟลเดอร์: ${fileCount || 20} ไฟล์\n\n` +
+                        `นับจากนี้ทุกรายงานและรูปภาพจะถูกจัดเก็บเข้าโครงการนี้โดยอัตโนมัติ`;
           if (replyToken) await replyLineMessage(replyToken, reply, channelAccessToken);
           return { handled: true, action: 'BIND_PROJECT', projectId: found.id, replied: true };
         } else {

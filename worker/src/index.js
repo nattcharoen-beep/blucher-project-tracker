@@ -252,7 +252,11 @@ export default {
         if (method === 'GET') {
           const project = await getProjectById(env.DB, id);
           if (!project) return errorResponse('Project not found', 404);
-          return jsonResponse({ success: true, project });
+          const wbs = await getWbsTasks(env.DB, id);
+          const actions = await getActionItems(env.DB, id);
+          const defects = await getDefects(env.DB, id);
+          const logs = await getDailyLogs(env.DB, id);
+          return jsonResponse({ success: true, project, wbs, actions, defects, logs });
         }
         if (method === 'PATCH' || method === 'PUT') {
           const body = await request.json();
