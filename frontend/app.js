@@ -795,23 +795,204 @@ document.addEventListener("DOMContentLoaded", async () => {
 /**
  * Bootstrap data from server or fallback to master records
  */
+function normalizeProjectId(rawId) {
+  if (!rawId) return null;
+  const s = String(rawId).toLowerCase().trim();
+  const canonicalList = [
+    "prj-chatuchak",
+    "prj-bangna",
+    "prj-bangkae",
+    "prj-saphansung",
+    "prj-lumpini",
+    "prj-prachin",
+    "prj-maehongson"
+  ];
+  if (/^[0-6]$/.test(s)) {
+    return canonicalList[Number(s)];
+  }
+  if (s.includes("jatu") || s.includes("chatuchak") || s.includes("จตุจักร")) return "prj-chatuchak";
+  if (s.includes("bangna") || s.includes("บางนา")) return "prj-bangna";
+  if (s.includes("bangkae") || s.includes("บางแค")) return "prj-bangkae";
+  if (s.includes("sapan") || s.includes("saphan") || s.includes("สะพานสูง")) return "prj-saphansung";
+  if (s.includes("lumpini") || s.includes("ลุมพินี")) return "prj-lumpini";
+  if (s.includes("prachin") || s.includes("ปราจีน")) return "prj-prachin";
+  if (s.includes("maehongson") || s.includes("แม่ฮ่องสอน")) return "prj-maehongson";
+  if (s.startsWith("prj-")) return s;
+  return `prj-${s}`;
+}
+
+function mergeBackendBootstrap(data) {
+  if (!data || !data.projects) return;
+
+  const rawList = Array.isArray(data.projects) 
+    ? data.projects 
+    : Object.values(data.projects);
+
+  rawList.forEach((rawItem) => {
+    if (!rawItem || typeof rawItem !== "object") return;
+
+    // Resolve project ID
+    const rawId = rawItem.id || rawItem.projectId || rawItem.key || rawItem.folderName || rawItem.name;
+    const canonicalId = normalizeProjectId(rawId);
+    if (!canonicalId) return;
+
+    // If project already exists in appState.projects, merge carefully
+    const existing = appState.projects[canonicalId];
+    if (existing) {
+      if (rawItem.name && typeof rawItem.name === "string" && rawItem.name.trim()) existing.name = rawItem.name;
+      if (rawItem.fullName || rawItem.full_name) existing.fullName = rawItem.fullName || rawItem.full_name;
+      if (rawItem.status && typeof rawItem.status === "string" && rawItem.status.trim()) existing.status = rawItem.status;
+      if (rawItem.period && typeof rawItem.period === "string" && rawItem.period.trim()) existing.period = rawItem.period;
+      
+      const budget = Number(rawItem.contractBudget ?? rawItem.contract_budget ?? rawItem.budget);
+      if (!isNaN(budget) && budget > 0) existing.contractBudget = budget;
+      
+      const targetCost = Number(rawItem.targetCost ?? rawItem.target_cost);
+      if (!isNaN(targetCost) && targetCost > 0) existing.targetCost = targetCost;
+      
+      const actualCost = Number(rawItem.actualCost ?? rawItem.actual_cost);
+      if (!isNaN(actualCost) && actualCost > 0) existing.actualCost = actualCost;
+      
+      const expectedProfit = Number(rawItem.expectedProfit ?? rawItem.expected_profit);
+      if (!isNaN(expectedProfit) && expectedProfit > 0) existing.expectedProfit = expectedProfit;
+
+      const profitMargin = Number(rawItem.profitMargin ?? rawItem.profit_margin);
+      if (!isNaN(profitMargin) && profitMargin > 0) existing.profitMargin = profitMargin;
+
+      const progressActual = Number(rawItem.progressActual ?? rawItem.actual_progress ?? rawItem.progress);
+      if (!isNaN(progressActual)) existing.progressActual = progressActual;
+
+      const progressPlanned = Number(rawItem.progressPlanned ?? rawItem.planned_progress);
+      if (!isNaN(progressPlanned)) existing.progressPlanned = progressPlanned;
+
+      const manpower = Number(rawItem.manpowerToday ?? rawItem.manpower_today);
+      if (!isNaN(manpower)) existing.manpowerToday = manpower;
+
+      const specs = rawItem.coreSpecs || rawItem.specs_summary || rawItem.core_specs || rawItem.specs;
+      if (specs && typeof specs === "string" && specs.trim().length > 0) existing.coreSpecs = specs;
+
+      if (rawItem.folderName || rawItem.folder_name) existing.folderName = rawItem.folderName || rawItem.folder_name;
+      if (rawItem.folderPath || rawItem.folder_path) existing.folderPath = rawItem.folderPath || rawItem.folder_path;
+      if (rawItem.lineGroupId || rawItem.line_group_id) existing.lineGroupId = rawItem.lineGroupId || rawItem.line_group_id;
+      if (rawItem.lineGroupName || rawItem.line_group_name) existing.lineGroupName = rawItem.lineGroupName || rawItem.line_group_name;
+
+      // Preserve rich arrays or normalize backend child items
+      if (Array.isArray(rawItem.wbsTasks) && rawItem.wbsTasks.length > 0) {
+        existing.wbsTasks = rawItem.wbsTasks.map((t, idx) => ({
+          id: t.id || `wbs-${idx + 1}`,
+          name: t.name || t.title || t.task_code || `งานส่วนที่ ${idx + 1}`,
+          category: t.category || (t.task_code ? `หมวด ${t.task_code}` : 'งานโครงสร้าง/สเปก'),
+          period: t.period || (t.start_date && t.due_date ? `${t.start_date} – ${t.due_date}` : (t.due_date ? `กำหนดส่ง ${t.due_date}` : 'ตามแผนงาน')),
+          weight: Number(t.weight ?? t.weight_percent) || 10,
+          progress: Number(t.progress ?? t.progress_percent) || 0,
+          status: t.status || ((Number(t.progress ?? t.progress_percent) || 0) === 100 ? 'เสร็จสิ้น' : 'กำลังทำ'),
+          assignee: t.assignee || 'ช่างหน้างาน'
+        }));
+      }
+      if (Array.isArray(rawItem.actionItems) && rawItem.actionItems.length > 0) {
+        existing.actionItems = rawItem.actionItems.map((a, idx) => ({
+          id: a.id || `act-${idx + 1}`,
+          assignee: a.assignee || 'ช่างหน้างาน',
+          title: a.title || a.name || 'คำสั่งการ',
+          quote: a.quote || a.raw_message || a.title || '',
+          orderedBy: a.orderedBy || a.assigned_by || 'พี่นัท',
+          deadline: a.deadline || a.due_date || 'ตามแผนงาน',
+          timestamp: a.timestamp || a.created_at || 'วันนี้',
+          priority: a.priority || 'ปกติ',
+          completed: a.completed !== undefined ? a.completed : (a.status === 'DONE' || a.status === 'COMPLETED')
+        }));
+      }
+      if (Array.isArray(rawItem.defects) && rawItem.defects.length > 0) {
+        existing.defects = rawItem.defects.map((d, idx) => ({
+          id: d.id || `df-${idx + 1}`,
+          title: d.title || d.description || 'จุดบกพร่อง',
+          location: d.location || d.zone || 'หน้างาน',
+          severity: d.severity || 'ปกติ',
+          status: d.status ? (d.status.toLowerCase() === 'resolved' || d.status.toLowerCase() === 'done' ? 'resolved' : (d.status.toLowerCase() === 'in_progress' ? 'in-progress' : 'pending')) : 'pending',
+          reporter: d.reporter || d.assignee || 'ช่างหน้างาน',
+          date: d.date || (d.created_at ? String(d.created_at).slice(0, 10) : 'วันนี้'),
+          photoUrl: d.photoUrl || d.photo_url || ''
+        }));
+      }
+      if (Array.isArray(rawItem.photos) && rawItem.photos.length > 0) existing.photos = rawItem.photos;
+      if (Array.isArray(rawItem.contractors) && rawItem.contractors.length > 0) existing.contractors = rawItem.contractors;
+      if (Array.isArray(rawItem.materials) && rawItem.materials.length > 0) existing.materials = rawItem.materials;
+      if (Array.isArray(rawItem.files) && rawItem.files.length > 0) existing.files = rawItem.files;
+      if (Array.isArray(rawItem.chatHistory) && rawItem.chatHistory.length > 0) existing.chatHistory = rawItem.chatHistory;
+    } else {
+      // Newly onboarded project (not in MASTER_PROJECTS)
+      const budget = Number(rawItem.contractBudget ?? rawItem.contract_budget ?? rawItem.budget) || 0;
+      const targetCost = Number(rawItem.targetCost ?? rawItem.target_cost) || Math.round(budget * 0.7);
+      const actualCost = Number(rawItem.actualCost ?? rawItem.actual_cost) || Math.round(targetCost * 0.5);
+      const expectedProfit = Number(rawItem.expectedProfit ?? rawItem.expected_profit) || (budget - targetCost);
+      const profitMargin = Number(rawItem.profitMargin ?? rawItem.profit_margin) || (budget > 0 ? Number(((expectedProfit / budget) * 100).toFixed(1)) : 0);
+      const progressActual = Number(rawItem.progressActual ?? rawItem.actual_progress ?? rawItem.progress) || 0;
+      const progressPlanned = Number(rawItem.progressPlanned ?? rawItem.planned_progress) || 0;
+      const manpower = Number(rawItem.manpowerToday ?? rawItem.manpower_today) || 0;
+      const specs = rawItem.coreSpecs || rawItem.specs_summary || rawItem.core_specs || rawItem.specs || "มาตรฐาน มอก. / สเปกบลูเคอร์";
+
+      appState.projects[canonicalId] = {
+        id: canonicalId,
+        name: rawItem.name || canonicalId,
+        fullName: rawItem.fullName || rawItem.full_name || rawItem.name || canonicalId,
+        folderName: rawItem.folderName || rawItem.folder_name || rawItem.name || canonicalId,
+        folderPath: rawItem.folderPath || rawItem.folder_path || `C:\\Users\\nattc\\OneDrive\\Desktop\\${rawItem.folderName || rawItem.name}`,
+        aiSubfolder: `${rawItem.folderName || rawItem.name}\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\`,
+        lineGroupId: rawItem.lineGroupId || rawItem.line_group_id || `c_${canonicalId}_line_grp`,
+        lineGroupName: rawItem.lineGroupName || rawItem.line_group_name || `บลูเคอร์ - ${rawItem.name || canonicalId}`,
+        status: rawItem.status || "กำลังดำเนินการ",
+        statusBadgeClass: rawItem.statusBadgeClass || "bg-sky-500/20 text-sky-300 border-sky-400/30",
+        period: rawItem.period || "ตามสัญญาจ้าง",
+        contractBudget: budget,
+        targetCost: targetCost,
+        actualCost: actualCost,
+        expectedProfit: expectedProfit,
+        profitMargin: profitMargin,
+        progressActual: progressActual,
+        progressPlanned: progressPlanned,
+        manpowerToday: manpower,
+        unreadCount: Number(rawItem.unreadCount) || 0,
+        lastMessageText: rawItem.lastMessageText || "พร้อมใช้งาน",
+        lastMessageTime: rawItem.lastMessageTime || "12:00",
+        coreSpecs: specs,
+        chatHistory: Array.isArray(rawItem.chatHistory) ? rawItem.chatHistory : [],
+        wbsTasks: Array.isArray(rawItem.wbsTasks) ? rawItem.wbsTasks : [],
+        actionItems: Array.isArray(rawItem.actionItems) ? rawItem.actionItems : [],
+        defects: Array.isArray(rawItem.defects) ? rawItem.defects : [],
+        photos: Array.isArray(rawItem.photos) ? rawItem.photos : [],
+        contractors: Array.isArray(rawItem.contractors) ? rawItem.contractors : [],
+        materials: Array.isArray(rawItem.materials) ? rawItem.materials : [],
+        files: Array.isArray(rawItem.files) ? rawItem.files : []
+      };
+    }
+  });
+
+  // Clean up any phantom numeric keys that might have been accidentally set
+  for (const k of Object.keys(appState.projects)) {
+    if (/^\d+$/.test(k)) {
+      delete appState.projects[k];
+    }
+  }
+
+  if (data.settings && data.settings.botEtiquette) {
+    appState.botEtiquette = data.settings.botEtiquette;
+  }
+}
+
 async function initBootstrapData() {
   try {
     const res = await fetch(`${API_BASE}/api/bootstrap`, { method: "GET" });
     if (res.ok) {
       const data = await res.json();
-      if (data && data.projects) {
-        Object.assign(appState.projects, data.projects);
+      if (data) {
+        mergeBackendBootstrap(data);
       }
-      if (data && data.settings && data.settings.botEtiquette) {
-        appState.botEtiquette = data.settings.botEtiquette;
-      }
-      console.log("Bootstrap loaded from backend API");
+      console.log("Bootstrap loaded and normalized safely from backend API");
     } else {
       console.info("Using local high-fidelity fallback dataset (Server API offline or file:// access)");
     }
   } catch (err) {
-    console.info("Local mode active: Operating with genuine 7 Desktop project dossiers");
+    console.info("Local mode active: Operating with genuine 7 Desktop project dossiers", err);
   }
 }
 
@@ -834,18 +1015,19 @@ function switchProject(projectId) {
   const viewProject = document.getElementById("viewProject");
 
   if (projectId === "all") {
-    viewPortfolio.classList.remove("hidden");
-    viewProject.classList.add("hidden");
+    if (viewPortfolio) viewPortfolio.classList.remove("hidden");
+    if (viewProject) viewProject.classList.add("hidden");
     renderPortfolioDashboard();
   } else {
-    viewPortfolio.classList.add("hidden");
-    viewProject.classList.remove("hidden");
+    if (viewPortfolio) viewPortfolio.classList.add("hidden");
+    if (viewProject) viewProject.classList.remove("hidden");
     // Also set active room in inbox to this project
     appState.inboxActiveRoomId = projectId;
     renderInboxRoomsList();
     renderActiveRoomChat();
     renderProjectDetailView(projectId);
   }
+  updateMobileNavUI();
 }
 
 function switchSubTab(tabName) {
@@ -877,8 +1059,7 @@ function switchSubTab(tabName) {
 // =============================================================================
 // 4. VIEW 1: PORTFOLIO EXECUTIVE OVERVIEW RENDERING
 // =============================================================================
-function renderPortfolioDashboard() {
-  const projectsList = Object.values(appState.projects);
+function renderPortfolioKpis(projectsList = Object.values(appState.projects)) {
   const totalProjects = projectsList.length;
   
   let totalContractValue = 0;
@@ -893,17 +1074,17 @@ function renderPortfolioDashboard() {
   let totalResolvedDefects = 0;
 
   projectsList.forEach(p => {
-    totalContractValue += p.contractBudget || 0;
-    totalTargetCost += p.targetCost || 0;
-    totalActualCost += p.actualCost || 0;
-    sumProgressActual += p.progressActual || 0;
-    sumProgressPlanned += p.progressPlanned || 0;
-    totalWorkers += p.manpowerToday || 0;
+    totalContractValue += Number(p.contractBudget) || 0;
+    totalTargetCost += Number(p.targetCost) || 0;
+    totalActualCost += Number(p.actualCost) || 0;
+    sumProgressActual += Number(p.progressActual) || 0;
+    sumProgressPlanned += Number(p.progressPlanned) || 0;
+    totalWorkers += Number(p.manpowerToday) || 0;
 
-    if (p.actionItems) {
+    if (Array.isArray(p.actionItems)) {
       totalPendingTasks += p.actionItems.filter(a => !a.completed).length;
     }
-    if (p.defects) {
+    if (Array.isArray(p.defects)) {
       p.defects.forEach(d => {
         if (d.status === "pending") totalOpenDefects++;
         else if (d.status === "in-progress") totalInProgressDefects++;
@@ -912,35 +1093,57 @@ function renderPortfolioDashboard() {
     }
   });
 
-  const avgProgress = totalProjects > 0 ? (sumProgressActual / totalProjects).toFixed(1) : 0;
-  const avgPlanned = totalProjects > 0 ? (sumProgressPlanned / totalProjects).toFixed(1) : 0;
-  const diffProgress = (avgProgress - avgPlanned).toFixed(1);
+  const avgProgress = totalProjects > 0 ? (sumProgressActual / totalProjects).toFixed(1) : "0.0";
+  const avgPlanned = totalProjects > 0 ? (sumProgressPlanned / totalProjects).toFixed(1) : "0.0";
+  const diffProgress = (Number(avgProgress) - Number(avgPlanned)).toFixed(1);
 
-  // Update KPI Cards DOM
-  document.getElementById("portfolioTotalValue").innerText = `${(totalContractValue / 1000000).toFixed(2)}M`;
-  document.getElementById("portfolioActiveCount").innerText = `${totalProjects} โครงการกำลังดำเนินการ`;
-  document.getElementById("portfolioTargetCost").innerText = `ต้นทุน ${(totalTargetCost / 1000000).toFixed(2)}M`;
+  // Update KPI Cards DOM defensively
+  const elTotalVal = document.getElementById("portfolioTotalValue");
+  if (elTotalVal) elTotalVal.innerText = `${((totalContractValue || 0) / 1000000).toFixed(2)}M`;
 
-  document.getElementById("portfolioAvgProgress").innerText = `${avgProgress}%`;
-  document.getElementById("portfolioProgressBar").style.width = `${avgProgress}%`;
+  const elActiveCount = document.getElementById("portfolioActiveCount");
+  if (elActiveCount) elActiveCount.innerText = `${totalProjects} โครงการกำลังดำเนินการ`;
+
+  const elTargetCost = document.getElementById("portfolioTargetCost");
+  if (elTargetCost) elTargetCost.innerText = `ต้นทุน ${((totalTargetCost || 0) / 1000000).toFixed(2)}M`;
+
+  const elAvgProgress = document.getElementById("portfolioAvgProgress");
+  if (elAvgProgress) elAvgProgress.innerText = `${avgProgress}%`;
+
+  const elProgressBar = document.getElementById("portfolioProgressBar");
+  if (elProgressBar) elProgressBar.style.width = `${Math.min(100, Math.max(0, Number(avgProgress)))}%`;
   
   const diffElem = document.getElementById("portfolioPlanDiff");
-  if (diffProgress < 0) {
-    diffElem.className = "text-xs font-medium text-amber-600";
-    diffElem.innerText = `ช้ากว่าแผน ${Math.abs(diffProgress)}%`;
-  } else {
-    diffElem.className = "text-xs font-medium text-emerald-600";
-    diffElem.innerText = `เร็วกว่าแผน +${diffProgress}%`;
+  if (diffElem) {
+    if (Number(diffProgress) < 0) {
+      diffElem.className = "text-xs font-medium text-amber-600";
+      diffElem.innerText = `ช้ากว่าแผน ${Math.abs(diffProgress)}%`;
+    } else {
+      diffElem.className = "text-xs font-medium text-emerald-600";
+      diffElem.innerText = `เร็วกว่าแผน +${diffProgress}%`;
+    }
   }
 
-  document.getElementById("portfolioPendingTasks").innerHTML = `${totalPendingTasks} <span class="text-sm font-normal text-slate-600">งาน</span>`;
-  document.getElementById("portfolioOpenDefects").innerText = `${totalOpenDefects} จุด`;
-  document.getElementById("portfolioTotalWorkers").innerText = totalWorkers;
+  const elPendingTasks = document.getElementById("portfolioPendingTasks");
+  if (elPendingTasks) elPendingTasks.innerHTML = `${totalPendingTasks} <span class="text-sm font-normal text-slate-600">งาน</span>`;
+
+  const elOpenDefects = document.getElementById("portfolioOpenDefects");
+  if (elOpenDefects) elOpenDefects.innerText = `${totalOpenDefects} จุด`;
+
+  const elTotalWorkers = document.getElementById("portfolioTotalWorkers");
+  if (elTotalWorkers) elTotalWorkers.innerText = totalWorkers;
+
+  return { totalProjects, totalContractValue, totalTargetCost, totalActualCost, avgProgress, avgPlanned, diffProgress, totalOpenDefects, totalInProgressDefects, totalResolvedDefects };
+}
+
+function renderPortfolioDashboard() {
+  const projectsList = Object.values(appState.projects);
+  const kpis = renderPortfolioKpis(projectsList);
 
   // Render Charts
-  renderPortfolioCharts(projectsList, totalOpenDefects, totalInProgressDefects, totalResolvedDefects);
+  renderPortfolioCharts(projectsList, kpis.totalOpenDefects, kpis.totalInProgressDefects, kpis.totalResolvedDefects);
 
-  // Render Portfolio Matrix Table
+  // Render Portfolio Matrix Table & Mobile Cards
   renderPortfolioMatrixTable(projectsList);
 }
 
@@ -950,9 +1153,9 @@ function renderPortfolioCharts(projectsList, openDefects, inProgressDefects, res
   if (barCtx) {
     if (appState.charts.bar) appState.charts.bar.destroy();
 
-    const labels = projectsList.map(p => p.name);
-    const plannedData = projectsList.map(p => p.progressPlanned);
-    const actualData = projectsList.map(p => p.progressActual);
+    const labels = projectsList.map(p => p.name || p.id);
+    const plannedData = projectsList.map(p => Number(p.progressPlanned) || 0);
+    const actualData = projectsList.map(p => Number(p.progressActual) || 0);
 
     appState.charts.bar = new Chart(barCtx, {
       type: "bar",
@@ -1033,83 +1236,194 @@ function renderPortfolioCharts(projectsList, openDefects, inProgressDefects, res
       }
     });
 
-    document.getElementById("statDefectOpen").innerText = openDefects;
-    document.getElementById("statDefectInProgress").innerText = inProgressDefects;
-    document.getElementById("statDefectClosed").innerText = resolvedDefects;
+    const elStatOpen = document.getElementById("statDefectOpen");
+    if (elStatOpen) elStatOpen.innerText = openDefects;
+    const elStatProg = document.getElementById("statDefectInProgress");
+    if (elStatProg) elStatProg.innerText = inProgressDefects;
+    const elStatClosed = document.getElementById("statDefectClosed");
+    if (elStatClosed) elStatClosed.innerText = resolvedDefects;
   }
 }
 
-function renderPortfolioMatrixTable(projectsList) {
-  const tbody = document.getElementById("portfolioTableBody");
-  if (!tbody) return;
+function renderPortfolioMatrixTable(projectsInput = "") {
+  let projectsList;
+  if (Array.isArray(projectsInput)) {
+    projectsList = projectsInput;
+  } else if (typeof projectsInput === "string" && projectsInput.trim() !== "") {
+    const term = projectsInput.toLowerCase().trim();
+    projectsList = Object.values(appState.projects).filter(p => 
+      (p.name || "").toLowerCase().includes(term) ||
+      (p.coreSpecs || "").toLowerCase().includes(term) ||
+      (p.folderName || "").toLowerCase().includes(term)
+    );
+  } else {
+    projectsList = Object.values(appState.projects);
+  }
 
-  tbody.innerHTML = projectsList.map(p => {
-    const defectsCount = p.defects ? p.defects.filter(d => d.status !== "resolved").length : 0;
-    const diff = (p.progressActual - p.progressPlanned).toFixed(0);
-    const diffBadge = diff >= 0 
-      ? `<span class="text-[10px] text-emerald-600 font-medium">+${diff}%</span>` 
-      : `<span class="text-[10px] text-rose-500 font-medium">${diff}%</span>`;
+  // 1. Desktop Table Body
+  const tbody = document.getElementById("portfolioTableBody") || document.getElementById("portfolioMatrixBody");
+  if (tbody) {
+    tbody.innerHTML = projectsList.map(p => {
+      const defectsCount = Array.isArray(p.defects) ? p.defects.filter(d => d.status !== "resolved").length : 0;
+      const progressActual = Number(p.progressActual) || 0;
+      const progressPlanned = Number(p.progressPlanned) || 0;
+      const diff = (progressActual - progressPlanned).toFixed(0);
+      const diffBadge = diff >= 0 
+        ? `<span class="text-[10px] text-emerald-600 font-medium">+${diff}%</span>` 
+        : `<span class="text-[10px] text-rose-500 font-medium">${diff}%</span>`;
 
-    return `
-      <tr class="table-row-hover transition-colors">
-        <td class="py-3 px-4">
-          <div class="font-bold text-slate-900 font-kanit text-sm flex items-center gap-1.5">
-            ${p.name}
-            <span class="text-[10px] px-2 py-0.5 rounded-full font-normal border ${p.statusBadgeClass || 'bg-slate-100 text-slate-600'}">${p.status}</span>
+      return `
+        <tr class="table-row-hover transition-colors">
+          <td class="py-3 px-4">
+            <div class="font-bold text-slate-900 font-kanit text-sm flex items-center gap-1.5">
+              ${p.name || p.id}
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-normal border ${p.statusBadgeClass || 'bg-slate-100 text-slate-600'}">${p.status || 'ดำเนินการ'}</span>
+            </div>
+            <div class="text-[11px] text-slate-600 flex items-center gap-1 mt-0.5">
+              <i class="fa-regular fa-folder text-amber-500"></i>
+              <span>${p.folderName || ''}</span>
+            </div>
+          </td>
+          <td class="py-3 px-3">
+            <span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+              <i class="fa-brands fa-line text-emerald-500"></i>
+              ผูกแล้ว (${p.lineGroupId || p.id})
+            </span>
+          </td>
+          <td class="py-3 px-3">
+            <span class="text-xs text-slate-700 font-medium max-w-[200px] truncate block" title="${escapeHtml(p.coreSpecs || '')}">${p.coreSpecs || '-'}</span>
+          </td>
+          <td class="py-3 px-3 text-right font-medium text-slate-900 font-kanit">
+            ${formatCurrency(p.contractBudget)}
+          </td>
+          <td class="py-3 px-3 text-right font-medium text-slate-600 font-kanit">
+            ${formatCurrency(p.targetCost)}
+          </td>
+          <td class="py-3 px-4">
+            <div class="flex items-center justify-between text-[11px] mb-1">
+              <span class="font-bold font-kanit text-slate-800">${progressActual}%</span>
+              <span>${diffBadge} <span class="text-slate-600">แผน ${progressPlanned}%</span></span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+              <div class="bg-sky-500 h-1.5 rounded-full" style="width: ${Math.min(100, Math.max(0, progressActual))}%"></div>
+            </div>
+          </td>
+          <td class="py-3 px-3 text-center">
+            ${defectsCount > 0 
+              ? `<span class="px-2 py-0.5 bg-rose-100 text-rose-700 font-bold rounded-full text-[11px]">${defectsCount}</span>` 
+              : `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold rounded-full text-[11px]">0</span>`
+            }
+          </td>
+          <td class="py-3 px-4 text-center">
+            <button onclick="switchProject('${p.id}')" class="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold rounded-xl border border-sky-200 transition-all font-kanit flex items-center gap-1 mx-auto">
+              <span>ดูรายละเอียด</span>
+              <i class="fa-solid fa-arrow-right text-[10px]"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  // 2. Mobile Project Cards Container
+  const mobileContainer = document.getElementById("mobilePortfolioCards");
+  if (mobileContainer) {
+    if (projectsList.length === 0) {
+      mobileContainer.innerHTML = `
+        <div class="p-6 text-center text-slate-500 text-xs bg-slate-50 rounded-2xl border border-slate-200">
+          ไม่พบโครงการที่ค้นหา
+        </div>
+      `;
+    } else {
+      mobileContainer.innerHTML = projectsList.map(p => {
+        const pendingDefects = Array.isArray(p.defects) ? p.defects.filter(d => d.status !== "resolved").length : 0;
+        const progressActual = Number(p.progressActual) || 0;
+        const progressPlanned = Number(p.progressPlanned) || 0;
+        const diff = (progressActual - progressPlanned).toFixed(0);
+        const diffText = diff >= 0 ? `+${diff}%` : `${diff}%`;
+        const diffColor = diff >= 0 ? 'text-emerald-600' : 'text-rose-500';
+
+        return `
+          <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90 space-y-3">
+            <!-- Top Row: Name, Folder, Status -->
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <h4 class="font-bold text-slate-900 font-kanit text-sm truncate flex items-center gap-1.5">
+                  ${p.name || p.id}
+                </h4>
+                <div class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                  <i class="fa-regular fa-folder text-amber-500 flex-shrink-0"></i>
+                  <span class="truncate">📁 ${p.folderName || p.name}</span>
+                </div>
+              </div>
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-medium border flex-shrink-0 ${p.statusBadgeClass || 'bg-slate-100 text-slate-600'}">
+                ${p.status || 'ดำเนินการ'}
+              </span>
+            </div>
+
+            <!-- Core Specs Box -->
+            <div class="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200 leading-relaxed break-words">
+              <div class="text-[10px] text-slate-600 font-semibold mb-0.5 flex items-center gap-1">
+                <i class="fa-solid fa-layer-group text-sky-500"></i> สเปกวัสดุหลัก:
+              </div>
+              ${p.coreSpecs || 'มาตรฐาน มอก. / สเปกบลูเคอร์'}
+            </div>
+
+            <!-- 2-col Metrics Grid -->
+            <div class="grid grid-cols-2 gap-2.5 pt-1 text-xs">
+              <!-- Col 1: Financials -->
+              <div class="bg-slate-50/70 p-2.5 rounded-xl border border-slate-100 space-y-1">
+                <div class="text-[10px] text-slate-600">งบสัญญา: <span class="font-bold font-kanit text-slate-900">${formatCurrency(p.contractBudget)} บ.</span></div>
+                <div class="text-[10px] text-slate-600">ต้นทุนเป้า: <span class="font-medium font-kanit text-slate-700">${formatCurrency(p.targetCost)} บ.</span></div>
+                <div class="text-[10px] text-emerald-700 font-semibold font-kanit">กำไร Margin ${p.profitMargin || 0}%</div>
+              </div>
+
+              <!-- Col 2: Progress & Operations -->
+              <div class="bg-slate-50/70 p-2.5 rounded-xl border border-slate-100 space-y-1">
+                <div class="flex items-center justify-between text-[10px]">
+                  <span class="text-slate-600">จริง <b class="text-slate-900">${progressActual}%</b></span>
+                  <span class="${diffColor} font-semibold">${diffText} (แผน ${progressPlanned}%)</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden my-1">
+                  <div class="bg-sky-500 h-1.5 rounded-full" style="width: ${Math.min(100, Math.max(0, progressActual))}%"></div>
+                </div>
+                <div class="flex items-center justify-between text-[10px] text-slate-600">
+                  <span>ช่างวันนี้: <b class="text-slate-800">${p.manpowerToday || 0} นาย</b></span>
+                  <span>Defect: <b class="${pendingDefects > 0 ? 'text-rose-600' : 'text-emerald-600'}">${pendingDefects} จุด</b></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bottom 2 Action Buttons -->
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button onclick="switchProject('${p.id}')" class="w-full py-2 px-3 bg-sky-50 hover:bg-sky-100 active:bg-sky-200 text-sky-800 text-xs font-semibold rounded-xl border border-sky-200 transition-all font-kanit flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-magnifying-glass text-[11px]"></i>
+                <span>เจาะลึกโครงการ</span>
+              </button>
+              <button onclick="openProjectLineInbox('${p.id}')" class="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 text-xs font-semibold rounded-xl border border-emerald-200 transition-all font-kanit flex items-center justify-center gap-1.5 relative">
+                <i class="fa-brands fa-line text-emerald-600 text-sm"></i>
+                <span>แชทกลุ่ม LINE</span>
+                ${p.unreadCount > 0 ? `
+                  <span class="ml-1 px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-bold rounded-full">
+                    ${p.unreadCount}
+                  </span>
+                ` : ''}
+              </button>
+            </div>
           </div>
-          <div class="text-[11px] text-slate-600 flex items-center gap-1 mt-0.5">
-            <i class="fa-regular fa-folder text-amber-500"></i>
-            <span>${p.folderName}</span>
-          </div>
-        </td>
-        <td class="py-3 px-3">
-          <span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-            <i class="fa-brands fa-line text-emerald-500"></i>
-            ผูกแล้ว (${p.lineGroupId})
-          </span>
-        </td>
-        <td class="py-3 px-3">
-          <span class="text-xs text-slate-700 font-medium max-w-[200px] truncate block" title="${p.coreSpecs}">${p.coreSpecs}</span>
-        </td>
-        <td class="py-3 px-3 text-right font-medium text-slate-900 font-kanit">
-          ${formatCurrency(p.contractBudget)}
-        </td>
-        <td class="py-3 px-3 text-right font-medium text-slate-600 font-kanit">
-          ${formatCurrency(p.targetCost)}
-        </td>
-        <td class="py-3 px-4">
-          <div class="flex items-center justify-between text-[11px] mb-1">
-            <span class="font-bold font-kanit text-slate-800">${p.progressActual}%</span>
-            <span>${diffBadge} <span class="text-slate-600">แผน ${p.progressPlanned}%</span></span>
-          </div>
-          <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-            <div class="bg-sky-500 h-1.5 rounded-full" style="width: ${p.progressActual}%"></div>
-          </div>
-        </td>
-        <td class="py-3 px-3 text-center">
-          ${defectsCount > 0 
-            ? `<span class="px-2 py-0.5 bg-rose-100 text-rose-700 font-bold rounded-full text-[11px]">${defectsCount}</span>` 
-            : `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold rounded-full text-[11px]">0</span>`
-          }
-        </td>
-        <td class="py-3 px-4 text-center">
-          <button onclick="switchProject('${p.id}')" class="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold rounded-xl border border-sky-200 transition-all font-kanit flex items-center gap-1 mx-auto">
-            <span>ดูรายละเอียด</span>
-            <i class="fa-solid fa-arrow-right text-[10px]"></i>
-          </button>
-        </td>
-      </tr>
-    `;
-  }).join("");
+        `;
+      }).join("");
+    }
+  }
 }
 
 function filterPortfolioTable(searchTerm) {
-  const term = searchTerm.toLowerCase().trim();
+  const term = (searchTerm || "").toLowerCase().trim();
   const projectsList = Object.values(appState.projects);
   const filtered = projectsList.filter(p => 
-    p.name.toLowerCase().includes(term) ||
-    p.coreSpecs.toLowerCase().includes(term) ||
-    p.folderName.toLowerCase().includes(term)
+    (p.name || "").toLowerCase().includes(term) ||
+    (p.coreSpecs || "").toLowerCase().includes(term) ||
+    (p.folderName || "").toLowerCase().includes(term)
   );
   renderPortfolioMatrixTable(filtered);
 }
@@ -1122,99 +1436,185 @@ function renderProjectDetailView(projectId) {
   if (!proj) return;
 
   // Header Elements
-  document.getElementById("projHeaderTitle").innerText = proj.name;
-  document.getElementById("projHeaderSubtitle").innerText = proj.fullName;
-  document.getElementById("projBadgeStatus").innerText = proj.status;
-  document.getElementById("projBadgeStatus").className = `px-2.5 py-1 text-xs font-semibold rounded-full flex items-center gap-1.5 border ${proj.statusBadgeClass || 'bg-emerald-500/20 text-emerald-300'}`;
-  
-  document.getElementById("projLineGroupTag").innerHTML = `
-    <i class="fa-brands fa-line text-emerald-400"></i>
-    <span>${proj.lineGroupName || 'ผูกกลุ่ม LINE แล้ว'}</span>
-  `;
+  const headerTitle = document.getElementById("projHeaderTitle");
+  if (headerTitle) headerTitle.innerText = proj.name || projectId;
 
-  document.getElementById("projFolderPath").innerText = proj.folderPath;
-  document.getElementById("projPeriod").innerText = proj.period;
-  document.getElementById("projMaterialSpec").innerText = proj.coreSpecs;
-  document.getElementById("projProgressPct").innerText = `${proj.progressActual.toFixed(1)}%`;
+  const headerSubtitle = document.getElementById("projHeaderSubtitle");
+  if (headerSubtitle) headerSubtitle.innerText = proj.fullName || proj.name || "";
+
+  const badgeStatus = document.getElementById("projBadgeStatus");
+  if (badgeStatus) {
+    badgeStatus.innerText = proj.status || "กำลังดำเนินการ";
+    badgeStatus.className = `px-2.5 py-1 text-xs font-semibold rounded-full flex items-center gap-1.5 border ${proj.statusBadgeClass || 'bg-emerald-500/20 text-emerald-300'}`;
+  }
   
-  const diff = (proj.progressActual - proj.progressPlanned).toFixed(1);
+  const lineTag = document.getElementById("projLineGroupTag");
+  if (lineTag) {
+    lineTag.innerHTML = `
+      <i class="fa-brands fa-line text-emerald-400"></i>
+      <span>${proj.lineGroupName || 'ผูกกลุ่ม LINE แล้ว'}</span>
+    `;
+  }
+
+  const folderPath = document.getElementById("projFolderPath");
+  if (folderPath) folderPath.innerText = proj.folderPath || "";
+
+  const period = document.getElementById("projPeriod");
+  if (period) period.innerText = proj.period || "";
+
+  const spec = document.getElementById("projMaterialSpec");
+  if (spec) spec.innerText = proj.coreSpecs || "";
+
+  const actualProg = Number(proj.progressActual) || 0;
+  const plannedProg = Number(proj.progressPlanned) || 0;
+  const progPct = document.getElementById("projProgressPct");
+  if (progPct) progPct.innerText = `${actualProg.toFixed(1)}%`;
+  
+  const diff = (actualProg - plannedProg).toFixed(1);
   const diffElem = document.getElementById("projProgressDiff");
-  if (diff >= 0) {
-    diffElem.className = "text-[10px] text-emerald-400";
-    diffElem.innerText = `เร็วกว่าแผน +${diff}%`;
-  } else {
-    diffElem.className = "text-[10px] text-amber-300";
-    diffElem.innerText = `ช้ากว่าแผน ${Math.abs(diff)}%`;
+  if (diffElem) {
+    if (Number(diff) >= 0) {
+      diffElem.className = "text-[10px] text-emerald-400";
+      diffElem.innerText = `เร็วกว่าแผน +${diff}%`;
+    } else {
+      diffElem.className = "text-[10px] text-amber-300";
+      diffElem.innerText = `ช้ากว่าแผน ${Math.abs(diff)}%`;
+    }
   }
 
   // Update Subtab badges
-  const pendingActions = proj.actionItems ? proj.actionItems.filter(a => !a.completed).length : 0;
-  const pendingDefects = proj.defects ? proj.defects.filter(d => d.status !== "resolved").length : 0;
-  document.getElementById("subtabActionCount").innerText = pendingActions;
-  document.getElementById("subtabDefectCount").innerText = pendingDefects;
+  const pendingActions = Array.isArray(proj.actionItems) ? proj.actionItems.filter(a => !a.completed).length : 0;
+  const pendingDefects = Array.isArray(proj.defects) ? proj.defects.filter(d => d.status !== "resolved").length : 0;
+  const subAction = document.getElementById("subtabActionCount");
+  if (subAction) subAction.innerText = pendingActions;
+  const subDefect = document.getElementById("subtabDefectCount");
+  if (subDefect) subDefect.innerText = pendingDefects;
 
   // Trigger rendering for the active subtab
   switchSubTab(appState.activeSubTab);
+  updateMobileNavUI();
 }
 
 // Sub-Tab 1: WBS Table
 function renderWbsTable(proj) {
-  const tbody = document.getElementById("wbsTableBody");
-  if (!tbody || !proj.wbsTasks) return;
+  if (!proj || !Array.isArray(proj.wbsTasks)) return;
 
   const syncTag = document.getElementById("wbsAutoSyncTag");
   if (syncTag) {
-    syncTag.innerText = `${proj.folderName}\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\_Site_Progress_Auto.xlsx`;
+    syncTag.innerText = `${proj.folderName || proj.name}\\AI_สร้าง_ข้อมูลและรูปจาก_LINE\\_Site_Progress_Auto.xlsx`;
   }
 
-  tbody.innerHTML = proj.wbsTasks.map((t, index) => {
-    return `
-      <tr class="table-row-hover transition-colors">
-        <td class="py-3 px-4 text-center font-bold text-slate-600">${index + 1}</td>
-        <td class="py-3 px-4 font-medium text-slate-800">${t.name}</td>
-        <td class="py-3 px-3">
-          <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[11px]">${t.category}</span>
-        </td>
-        <td class="py-3 px-3 text-slate-600 text-[11px]">${t.period}</td>
-        <td class="py-3 px-3 text-center font-semibold text-slate-700">${t.weight}%</td>
-        <td class="py-3 px-4">
-          <div class="flex items-center gap-3">
-            <input type="range" min="0" max="100" value="${t.progress}" 
-                   onchange="updateWbsTaskProgress('${proj.id}', '${t.id}', this.value)" 
-                   class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
-            <span class="font-bold text-xs text-sky-700 font-kanit w-10 text-right">${t.progress}%</span>
+  // 1. Desktop Table Body
+  const tbody = document.getElementById("wbsTableBody");
+  if (tbody) {
+    tbody.innerHTML = proj.wbsTasks.map((t, index) => {
+      const taskName = t.name || t.title || t.task_code || `งานส่วนที่ ${index + 1}`;
+      const taskCategory = t.category || (t.task_code ? `หมวด ${t.task_code}` : 'งานโครงสร้าง/สเปก');
+      const taskPeriod = t.period || (t.start_date && t.due_date ? `${t.start_date} – ${t.due_date}` : (t.due_date ? `กำหนดส่ง ${t.due_date}` : 'ตามแผนงาน'));
+      const taskWeight = Number(t.weight ?? t.weight_percent) || 10;
+      const progressVal = Number(t.progress ?? t.progress_percent) || 0;
+      return `
+        <tr class="table-row-hover transition-colors">
+          <td class="py-3 px-4 text-center font-bold text-slate-600">${index + 1}</td>
+          <td class="py-3 px-4 font-medium text-slate-800">${taskName}</td>
+          <td class="py-3 px-3">
+            <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[11px]">${taskCategory}</span>
+          </td>
+          <td class="py-3 px-3 text-slate-600 text-[11px]">${taskPeriod}</td>
+          <td class="py-3 px-3 text-center font-semibold text-slate-700">${taskWeight}%</td>
+          <td class="py-3 px-4">
+            <div class="flex items-center gap-3">
+              <input type="range" min="0" max="100" value="${progressVal}" 
+                     onchange="updateWbsProgress('${proj.id}', '${t.id}', this.value)" 
+                     class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+              <span class="font-bold text-xs text-sky-700 font-kanit w-10 text-right">${progressVal}%</span>
+            </div>
+          </td>
+          <td class="py-3 px-3 text-center">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+              progressVal === 100 
+                ? 'bg-emerald-100 text-emerald-800' 
+                : progressVal > 0 
+                  ? 'bg-sky-100 text-sky-800' 
+                  : 'bg-slate-100 text-slate-600'
+            }">
+              ${progressVal === 100 ? 'เสร็จสิ้น' : progressVal > 0 ? 'กำลังทำ' : 'รอดำเนินการ'}
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  // 2. Mobile WBS Cards Container
+  const mobileContainer = document.getElementById("mobileWbsCards");
+  if (mobileContainer) {
+    mobileContainer.innerHTML = proj.wbsTasks.map((t, index) => {
+      const taskName = t.name || t.title || t.task_code || `งานส่วนที่ ${index + 1}`;
+      const taskCategory = t.category || (t.task_code ? `หมวด ${t.task_code}` : 'งานโครงสร้าง/สเปก');
+      const taskPeriod = t.period || (t.start_date && t.due_date ? `${t.start_date} – ${t.due_date}` : (t.due_date ? `กำหนดส่ง ${t.due_date}` : 'ตามแผนงาน'));
+      const taskWeight = Number(t.weight ?? t.weight_percent) || 10;
+      const progressVal = Number(t.progress ?? t.progress_percent) || 0;
+      const statusClass = progressVal === 100 
+        ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+        : progressVal > 0 
+          ? 'bg-sky-100 text-sky-800 border-sky-200' 
+          : 'bg-slate-100 text-slate-600 border-slate-200';
+      const statusLabel = progressVal === 100 ? 'เสร็จสิ้น' : progressVal > 0 ? 'กำลังทำ' : 'รอดำเนินการ';
+
+      return `
+        <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 space-y-2.5">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-start gap-2">
+              <span class="w-5 h-5 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                ${index + 1}
+              </span>
+              <h5 class="font-semibold text-slate-800 text-xs leading-snug">${taskName}</h5>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold border flex-shrink-0 ${statusClass}">
+              ${statusLabel}
+            </span>
           </div>
-        </td>
-        <td class="py-3 px-3 text-center">
-          <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-            t.progress === 100 
-              ? 'bg-emerald-100 text-emerald-800' 
-              : t.progress > 0 
-                ? 'bg-sky-100 text-sky-800' 
-                : 'bg-slate-100 text-slate-600'
-          }">
-            ${t.progress === 100 ? 'เสร็จสิ้น' : t.progress > 0 ? 'กำลังทำ' : 'รอดำเนินการ'}
-          </span>
-        </td>
-      </tr>
-    `;
-  }).join("");
+
+          <div class="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
+            <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px]">${taskCategory}</span>
+            <span>•</span>
+            <span>${taskPeriod}</span>
+            <span>•</span>
+            <span class="font-medium text-slate-700">น้ำหนัก ${taskWeight}%</span>
+          </div>
+
+          <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+            <div class="flex items-center justify-between text-xs mb-1.5">
+              <span class="text-slate-600 text-[11px]">ปรับความคืบหน้า:</span>
+              <span class="font-bold text-xs text-sky-700 font-kanit" id="mobile-wbs-label-${t.id}">${progressVal}%</span>
+            </div>
+            <input type="range" min="0" max="100" value="${progressVal}" 
+                   oninput="const lbl = document.getElementById('mobile-wbs-label-${t.id}'); if (lbl) lbl.innerText = this.value + '%';"
+                   onchange="updateWbsProgress('${proj.id}', '${t.id}', this.value)" 
+                   class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600">
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
 }
 
 function updateWbsTaskProgress(projId, taskId, newProgress) {
   const proj = appState.projects[projId];
-  if (!proj || !proj.wbsTasks) return;
+  if (!proj || !Array.isArray(proj.wbsTasks)) return;
 
   const task = proj.wbsTasks.find(t => t.id === taskId);
   if (task) {
-    task.progress = parseInt(newProgress, 10);
+    task.progress = parseInt(newProgress, 10) || 0;
     task.status = task.progress === 100 ? "เสร็จสิ้น" : (task.progress > 0 ? "กำลังทำ" : "รอดำเนินการ");
 
     let weightedSum = 0;
     let totalWeight = 0;
     proj.wbsTasks.forEach(t => {
-      weightedSum += (t.progress * (t.weight || 1));
-      totalWeight += (t.weight || 1);
+      const w = Number(t.weight) || 1;
+      weightedSum += ((Number(t.progress) || 0) * w);
+      totalWeight += w;
     });
     if (totalWeight > 0) {
       proj.progressActual = parseFloat((weightedSum / totalWeight).toFixed(1));
@@ -1223,6 +1623,10 @@ function updateWbsTaskProgress(projId, taskId, newProgress) {
     renderProjectDetailView(projId);
     showToast(`อัปเดต "${task.name}" เป็น ${task.progress}% และบันทึกลง _Site_Progress_Auto.xlsx`, "success");
   }
+}
+
+function updateWbsProgress(projId, taskId, newProgress) {
+  return updateWbsTaskProgress(projId, taskId, newProgress);
 }
 
 // Sub-Tab 2: Action Items To-Do
@@ -1465,15 +1869,20 @@ function renderMasterDossier(proj) {
   if (!proj) return;
 
   // Financial Summary
-  document.getElementById("dossierContractBudget").innerText = formatCurrency(proj.contractBudget);
-  document.getElementById("dossierTargetCost").innerText = formatCurrency(proj.targetCost);
-  document.getElementById("dossierActualSpent").innerText = formatCurrency(proj.actualCost);
-  document.getElementById("dossierExpectedProfit").innerText = formatCurrency(proj.expectedProfit);
-  document.getElementById("dossierMarginPct").innerText = `Margin ${proj.profitMargin}%`;
+  const elBudget = document.getElementById("dossierContractBudget");
+  if (elBudget) elBudget.innerText = formatCurrency(proj.contractBudget);
+  const elTargetCost = document.getElementById("dossierTargetCost");
+  if (elTargetCost) elTargetCost.innerText = formatCurrency(proj.targetCost);
+  const elActualSpent = document.getElementById("dossierActualSpent");
+  if (elActualSpent) elActualSpent.innerText = formatCurrency(proj.actualCost);
+  const elExpectedProfit = document.getElementById("dossierExpectedProfit");
+  if (elExpectedProfit) elExpectedProfit.innerText = formatCurrency(proj.expectedProfit);
+  const elMarginPct = document.getElementById("dossierMarginPct");
+  if (elMarginPct) elMarginPct.innerText = `Margin ${proj.profitMargin || 0}%`;
 
-  // Contractors Directory
-  const contractorBody = document.getElementById("dossierContractorBody");
-  if (contractorBody && proj.contractors) {
+  // 1. Contractors Directory (Desktop Table)
+  const contractorBody = document.getElementById("dossierContractorBody") || document.getElementById("contractorsTableBody");
+  if (contractorBody && Array.isArray(proj.contractors)) {
     contractorBody.innerHTML = proj.contractors.map(c => `
       <tr class="table-row-hover transition-colors">
         <td class="py-2.5 px-4 font-bold text-slate-800">${c.name}</td>
@@ -1485,9 +1894,29 @@ function renderMasterDossier(proj) {
     `).join("");
   }
 
-  // Materials Specification
-  const materialBody = document.getElementById("dossierMaterialBody");
-  if (materialBody && proj.materials) {
+  // 2. Mobile Contractors Cards
+  const mobileContractors = document.getElementById("mobileContractorsCards");
+  if (mobileContractors && Array.isArray(proj.contractors)) {
+    mobileContractors.innerHTML = proj.contractors.map(c => `
+      <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200 space-y-1.5">
+        <div class="flex items-start justify-between gap-2">
+          <h5 class="font-bold text-slate-900 text-xs font-kanit">${c.name}</h5>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">${c.role}</span>
+        </div>
+        <div class="text-[11px] text-slate-600 flex items-center gap-1 font-mono-code">
+          <i class="fa-solid fa-phone text-[10px] text-slate-600"></i> ${c.contact}
+        </div>
+        <div class="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
+          <span class="text-slate-500">${c.milestones}</span>
+          <span class="font-bold font-kanit text-slate-900">${c.amount}</span>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  // 3. Materials Specification (Desktop Table)
+  const materialBody = document.getElementById("dossierMaterialBody") || document.getElementById("materialsTableBody");
+  if (materialBody && Array.isArray(proj.materials)) {
     materialBody.innerHTML = proj.materials.map(m => `
       <tr class="table-row-hover transition-colors">
         <td class="py-2.5 px-4 font-semibold text-slate-800">${m.item}</td>
@@ -1500,9 +1929,27 @@ function renderMasterDossier(proj) {
     `).join("");
   }
 
-  // Files List
+  // 4. Mobile Materials Cards
+  const mobileMaterials = document.getElementById("mobileMaterialsCards");
+  if (mobileMaterials && Array.isArray(proj.materials)) {
+    mobileMaterials.innerHTML = proj.materials.map(m => `
+      <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200 space-y-1.5">
+        <div class="flex items-start justify-between gap-2">
+          <h5 class="font-bold text-slate-900 text-xs">${m.item}</h5>
+          <span class="font-bold font-kanit text-slate-900 text-xs">${m.total} บ.</span>
+        </div>
+        <p class="text-[11px] text-slate-600 leading-snug">${m.spec}</p>
+        <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+          <span>จำนวน: <b class="text-slate-700 font-kanit">${m.qty} ${m.unit}</b></span>
+          <span>หน่วยละ: <b class="text-slate-700 font-kanit">${m.unitPrice} บ.</b></span>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  // 5. Files List
   const filesList = document.getElementById("dossierFilesList");
-  if (filesList && proj.files) {
+  if (filesList && Array.isArray(proj.files)) {
     filesList.innerHTML = proj.files.map(f => {
       let icon = "fa-file-excel text-emerald-600";
       if (f.name.endsWith(".pdf")) icon = "fa-file-pdf text-rose-600";
@@ -1524,6 +1971,10 @@ function renderMasterDossier(proj) {
   }
 }
 
+function renderDossierTab(proj) {
+  return renderMasterDossier(proj);
+}
+
 // =============================================================================
 // 6. UNIFIED LINE 7-GROUP INBOX LOGIC & SHORTCUT ACTIONS
 // =============================================================================
@@ -1534,7 +1985,7 @@ function renderInboxRoomsList(searchTerm = "") {
   const term = searchTerm.toLowerCase().trim();
   let rooms = Object.values(appState.projects);
   if (term) {
-    rooms = rooms.filter(r => r.name.toLowerCase().includes(term) || r.lineGroupName.toLowerCase().includes(term));
+    rooms = rooms.filter(r => (r.name || "").toLowerCase().includes(term) || (r.lineGroupName || "").toLowerCase().includes(term));
   }
 
   container.innerHTML = rooms.map(room => {
@@ -1543,7 +1994,7 @@ function renderInboxRoomsList(searchTerm = "") {
       <div onclick="selectInboxRoom('${room.id}')" class="p-3 cursor-pointer transition-all hover:bg-slate-100 flex items-start gap-2.5 ${isActive ? 'line-room-active bg-emerald-50/70' : 'bg-transparent'}">
         <div class="relative flex-shrink-0 mt-0.5">
           <div class="w-9 h-9 rounded-xl bg-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs font-kanit">
-            ${room.name.slice(0, 3)}
+            ${(room.name || room.id).slice(0, 3)}
           </div>
           <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white"></span>
         </div>
@@ -1582,6 +2033,42 @@ function selectInboxRoom(roomId) {
   }
   renderInboxRoomsList();
   renderActiveRoomChat();
+
+  const sidebarPane = document.getElementById("inboxSidebarPane") || document.querySelector("#assistPane-inbox > aside");
+  const chatPane = document.getElementById("inboxChatPane") || document.querySelector("#assistPane-inbox > div");
+  if (sidebarPane && chatPane) {
+    sidebarPane.classList.add("hidden", "md:flex");
+    sidebarPane.classList.remove("flex");
+    chatPane.classList.remove("hidden");
+    chatPane.classList.add("flex");
+  }
+}
+
+function backToMobileInboxList() {
+  const sidebarPane = document.getElementById("inboxSidebarPane") || document.querySelector("#assistPane-inbox > aside");
+  const chatPane = document.getElementById("inboxChatPane") || document.querySelector("#assistPane-inbox > div");
+  if (sidebarPane && chatPane) {
+    sidebarPane.classList.remove("hidden");
+    sidebarPane.classList.add("flex");
+    chatPane.classList.add("hidden", "md:flex");
+    chatPane.classList.remove("flex");
+  }
+  renderInboxRoomsList();
+}
+
+function openProjectLineInbox(projectId) {
+  const drawer = document.getElementById("assistantDrawer");
+  const backdrop = document.getElementById("assistantDrawerBackdrop");
+  if (drawer) drawer.classList.remove("translate-x-full");
+  if (backdrop) backdrop.classList.remove("hidden");
+  
+  switchAssistantTab("inbox");
+  if (projectId && appState.projects[projectId]) {
+    selectInboxRoom(projectId);
+  } else if (appState.inboxActiveRoomId && appState.projects[appState.inboxActiveRoomId]) {
+    selectInboxRoom(appState.inboxActiveRoomId);
+  }
+  updateMobileNavUI();
 }
 
 function renderActiveRoomChat() {
@@ -1589,11 +2076,23 @@ function renderActiveRoomChat() {
   if (!room) return;
 
   // Header update
-  document.getElementById("inboxCurrentRoomTitle").innerText = room.lineGroupName;
-  document.getElementById("inboxCurrentRoomMeta").innerHTML = `
-    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-    <span>โฟลเดอร์: ${room.folderName} · สเปก: ${room.coreSpecs.slice(0, 35)}...</span>
-  `;
+  const roomNameEl = document.getElementById("activeRoomName");
+  if (roomNameEl) {
+    roomNameEl.innerText = room.lineGroupName || room.name;
+  }
+  const titleEl = document.getElementById("inboxCurrentRoomTitle");
+  if (titleEl && !roomNameEl) {
+    titleEl.innerText = room.lineGroupName || room.name;
+  }
+
+  const metaEl = document.getElementById("inboxCurrentRoomMeta");
+  if (metaEl) {
+    const specsStr = (room.coreSpecs || "");
+    metaEl.innerHTML = `
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+      <span>โฟลเดอร์: ${room.folderName || room.name} · สเปก: ${specsStr.slice(0, 35)}...</span>
+    `;
+  }
 
   // Render messages
   const stream = document.getElementById("inboxMessagesStream");
@@ -1975,27 +2474,46 @@ function exportToExcel() {
 function toggleAssistantDrawer() {
   const drawer = document.getElementById("assistantDrawer");
   const backdrop = document.getElementById("assistantDrawerBackdrop");
+  if (!drawer) return;
   const isHidden = drawer.classList.contains("translate-x-full");
 
   if (isHidden) {
     drawer.classList.remove("translate-x-full");
-    backdrop.classList.remove("hidden");
+    if (backdrop) backdrop.classList.remove("hidden");
   } else {
     drawer.classList.add("translate-x-full");
-    backdrop.classList.add("hidden");
+    if (backdrop) backdrop.classList.add("hidden");
   }
+  updateMobileNavUI();
 }
 
 function openAssistant(tab = "inbox") {
-  toggleAssistantDrawer();
+  const drawer = document.getElementById("assistantDrawer");
+  const backdrop = document.getElementById("assistantDrawerBackdrop");
+  if (drawer) drawer.classList.remove("translate-x-full");
+  if (backdrop) backdrop.classList.remove("hidden");
   switchAssistantTab(tab);
+
+  if (tab === "inbox") {
+    if (appState.currentProjectId !== "all" && appState.projects[appState.currentProjectId]) {
+      appState.inboxActiveRoomId = appState.currentProjectId;
+    }
+    renderInboxRoomsList();
+    renderActiveRoomChat();
+
+    if (window.innerWidth < 768 && appState.currentProjectId === "all") {
+      backToMobileInboxList();
+    }
+  }
+  updateMobileNavUI();
 }
 
 function closeAssistantDrawer() {
   const drawer = document.getElementById("assistantDrawer");
   const backdrop = document.getElementById("assistantDrawerBackdrop");
-  drawer.classList.add("translate-x-full");
-  backdrop.classList.add("hidden");
+  if (drawer) drawer.classList.add("translate-x-full");
+  if (backdrop) backdrop.classList.add("hidden");
+  updateMobileNavUI();
 }
 
 function switchAssistantTab(tabName) {
@@ -2085,8 +2603,10 @@ async function generateAbdulReply(query) {
 
 // Mode B: LINE Webhook Simulator (6 Scenarios)
 function runSimulation(scenarioNum) {
-  const targetProjId = document.getElementById("simTargetGroup").value;
-  const proj = appState.projects[targetProjId];
+  const simSelect = document.getElementById("simTargetGroup");
+  const targetProjId = (simSelect && simSelect.value) ? simSelect.value : (appState.inboxActiveRoomId || "prj-chatuchak");
+  const proj = appState.projects[targetProjId] || Object.values(appState.projects)[0];
+  if (!proj) return;
 
   switch (scenarioNum) {
     case 1:
@@ -2434,33 +2954,73 @@ function renderProjectDropdown() {
     <option value="all">🏢 ภาพรวมทุกโครงการ (Portfolio Overview - ${Object.keys(appState.projects).length} โครงการ)</option>
     <optgroup label="── โครงการบน Desktop ──">
       ${Object.values(appState.projects).map(p => `
-        <option value="${p.id}">${p.name} (${p.coreSpecs.slice(0, 25)}...)</option>
+        <option value="${p.id}">${p.name || p.id} (${(p.coreSpecs || "").slice(0, 25)}...)</option>
       `).join("")}
     </optgroup>
   `;
-  select.value = currentVal || "all";
+  if (currentVal && (currentVal === "all" || appState.projects[currentVal])) {
+    select.value = currentVal;
+  } else {
+    select.value = appState.currentProjectId || "all";
+  }
 }
 
 // Add Task / Defect Modal
 function openAddTaskDefectModal() {
-  document.getElementById("addTaskDefectModal").classList.remove("hidden");
+  const modal = document.getElementById("addTaskDefectModal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+
+  // Populate modalProjectSelect if present in DOM
+  const selectEl = document.getElementById("modalProjectSelect");
+  if (selectEl) {
+    selectEl.innerHTML = Object.values(appState.projects).map(p => `
+      <option value="${p.id}">${p.name || p.id}</option>
+    `).join("");
+    const defaultVal = appState.currentProjectId !== "all" 
+      ? appState.currentProjectId 
+      : (appState.inboxActiveRoomId || "prj-chatuchak");
+    selectEl.value = defaultVal;
+  }
+
+  // Clear input fields
+  const descEl = document.getElementById("modalItemDesc");
+  if (descEl) descEl.value = "";
+  const assigneeEl = document.getElementById("modalItemAssignee");
+  if (assigneeEl) assigneeEl.value = "";
 }
 
 function openAddDefectOnlyModal() {
   openAddTaskDefectModal();
-  document.getElementById("modalItemType").value = "defect";
+  const typeEl = document.getElementById("modalItemType");
+  if (typeEl) typeEl.value = "defect";
 }
 
 function closeAddTaskDefectModal() {
-  document.getElementById("addTaskDefectModal").classList.add("hidden");
+  const modal = document.getElementById("addTaskDefectModal");
+  if (modal) modal.classList.add("hidden");
 }
 
 function submitAddTaskDefect() {
-  const type = document.getElementById("modalItemType").value;
-  const desc = document.getElementById("modalItemDesc").value.trim();
-  const assignee = document.getElementById("modalItemAssignee").value.trim() || "ช่างหน้างาน";
-  const priority = document.getElementById("modalItemPriority").value;
-  const proj = appState.projects[appState.currentProjectId];
+  const typeEl = document.getElementById("modalItemType");
+  const type = (typeEl && typeEl.value) ? typeEl.value : "action";
+  const descEl = document.getElementById("modalItemDesc");
+  const desc = descEl ? descEl.value.trim() : "";
+  const assigneeEl = document.getElementById("modalItemAssignee");
+  const assignee = (assigneeEl && assigneeEl.value.trim()) ? assigneeEl.value.trim() : "ช่างหน้างาน";
+  const priorityEl = document.getElementById("modalItemPriority");
+  const priority = priorityEl ? priorityEl.value : "ปกติ";
+
+  const selectEl = document.getElementById("modalProjectSelect");
+  const targetProjId = (selectEl && selectEl.value) 
+    ? selectEl.value 
+    : (appState.currentProjectId !== "all" ? appState.currentProjectId : (appState.inboxActiveRoomId || "prj-chatuchak"));
+
+  const proj = appState.projects[targetProjId];
+  if (!proj) {
+    showToast("ไม่พบข้อมูลโครงการเป้าหมาย", "error");
+    return;
+  }
 
   if (!desc) {
     showToast("กรุณากรอกรายละเอียด", "warning");
@@ -2468,7 +3028,7 @@ function submitAddTaskDefect() {
   }
 
   if (type === "action") {
-    if (!proj.actionItems) proj.actionItems = [];
+    if (!Array.isArray(proj.actionItems)) proj.actionItems = [];
     proj.actionItems.unshift({
       id: `act-manual-${Date.now()}`,
       assignee: assignee,
@@ -2480,9 +3040,9 @@ function submitAddTaskDefect() {
       priority: priority,
       completed: false
     });
-    showToast("เพิ่มงานสั่งการเรียบร้อย", "success");
+    showToast(`เพิ่มงานสั่งการให้ ${proj.name} เรียบร้อย`, "success");
   } else {
-    if (!proj.defects) proj.defects = [];
+    if (!Array.isArray(proj.defects)) proj.defects = [];
     proj.defects.unshift({
       id: `df-manual-${Date.now()}`,
       title: desc,
@@ -2493,11 +3053,17 @@ function submitAddTaskDefect() {
       date: "วันนี้",
       photoUrl: "https://images.unsplash.com/photo-1541888946425-d0fbb1861564?auto=format&fit=crop&w=600&q=80"
     });
-    showToast("เพิ่มรายการ Defect เรียบร้อย", "success");
+    showToast(`เพิ่มรายการ Defect ให้ ${proj.name} เรียบร้อย`, "success");
   }
 
   closeAddTaskDefectModal();
-  renderProjectDetailView(proj.id);
+  
+  if (appState.currentProjectId === "all") {
+    renderPortfolioDashboard();
+  } else if (appState.currentProjectId === proj.id) {
+    renderProjectDetailView(proj.id);
+  }
+  renderInboxRoomsList();
 }
 
 // Archive Project Action
@@ -2593,4 +3159,130 @@ function formatBotMarkdown(text) {
     .replace(/`(.*?)`/g, "<code class='bg-slate-100 text-slate-800 px-1 py-0.5 rounded text-[10px]'>$1</code>")
     .replace(/\n/g, "<br>");
   return html;
+}
+
+// =============================================================================
+// 12. MOBILE NAVIGATION BAR & GLOBAL WINDOW BINDINGS
+// =============================================================================
+function mobileNavSwitch(target) {
+  if (target === "portfolio") {
+    closeAssistantDrawer();
+    switchProject("all");
+  } else if (target === "project") {
+    closeAssistantDrawer();
+    const pid = appState.currentProjectId !== "all" 
+      ? appState.currentProjectId 
+      : (appState.inboxActiveRoomId || "prj-chatuchak");
+    switchProject(pid);
+  } else if (target === "inbox") {
+    openAssistant("inbox");
+  } else if (target === "action") {
+    openAddTaskDefectModal();
+  }
+  updateMobileNavUI();
+}
+
+function updateMobileNavUI() {
+  const mnavPortfolio = document.getElementById("mnav-portfolio");
+  const mnavProject = document.getElementById("mnav-project");
+  const mnavInbox = document.getElementById("mnav-inbox");
+  const mnavAction = document.getElementById("mnav-action");
+
+  const drawer = document.getElementById("assistantDrawer");
+  const isDrawerOpen = drawer && !drawer.classList.contains("translate-x-full");
+
+  const resetItem = (el) => {
+    if (!el) return;
+    el.classList.remove("text-sky-600", "text-emerald-600", "text-white", "bg-sky-50", "bg-emerald-50", "font-bold");
+    el.classList.add("text-slate-500");
+  };
+
+  const setActive = (el, colorClass) => {
+    if (!el) return;
+    el.classList.remove("text-slate-500");
+    el.classList.add(colorClass, "font-bold");
+  };
+
+  [mnavPortfolio, mnavProject, mnavInbox, mnavAction].forEach(resetItem);
+
+  if (isDrawerOpen) {
+    if (appState.assistantTab === "inbox") {
+      setActive(mnavInbox, "text-emerald-600");
+    }
+  } else {
+    if (appState.currentProjectId === "all") {
+      setActive(mnavPortfolio, "text-sky-600");
+    } else {
+      setActive(mnavProject, "text-sky-600");
+    }
+  }
+}
+
+function toggleActionItem(projId, actId) {
+  return toggleActionItemComplete(projId, actId);
+}
+
+// Bind all interactive functions to window for 100% reliable HTML onclick handlers
+if (typeof window !== "undefined") {
+  window.appState = appState;
+  window.MASTER_PROJECTS = MASTER_PROJECTS;
+  Object.assign(window, {
+    appState,
+    MASTER_PROJECTS,
+    mergeBackendBootstrap,
+    normalizeProjectId,
+    renderProjectDropdown,
+    renderInboxRoomsList,
+    renderActiveRoomChat,
+    switchProject,
+    onProjectSelectChange,
+    switchSubTab,
+    openAssistant,
+    toggleAssistantDrawer,
+    closeAssistantDrawer,
+    switchAssistantTab,
+    openProjectLineInbox,
+    selectInboxRoom,
+    backToMobileInboxList,
+    filterInboxRooms,
+    triggerAiSummarizeAndDispatch,
+    openRoomMediaVault,
+    closeRoomMediaVault,
+    handleQuickChip,
+    onInboxSendMessage,
+    toggleBotEtiquette,
+    toggleExportMenu,
+    exportToExcel,
+    exportToPdf,
+    runSimulation,
+    sendCustomSimulation,
+    clearSimLogs,
+    openOnboardModal,
+    closeOnboardModal,
+    onOnboardFolderChange,
+    scanDesktopFolders,
+    submitOnboardProject,
+    openAddTaskDefectModal,
+    openAddDefectOnlyModal,
+    closeAddTaskDefectModal,
+    submitAddTaskDefect,
+    archiveCurrentProject,
+    openLightbox,
+    closeLightbox,
+    refreshData,
+    updateWbsProgress,
+    updateWbsTaskProgress,
+    toggleActionItem,
+    toggleActionItemComplete,
+    moveDefectStatus,
+    filterPortfolioTable,
+    mobileNavSwitch,
+    updateMobileNavUI,
+    renderPortfolioKpis,
+    renderPortfolioDashboard,
+    renderPortfolioMatrixTable,
+    renderWbsTable,
+    renderMasterDossier,
+    renderDossierTab
+  });
 }

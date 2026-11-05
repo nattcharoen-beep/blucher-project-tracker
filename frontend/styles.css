@@ -180,6 +180,48 @@ input[type="range"] {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+/* ==========================================================================
+   Mobile-First Responsive & Anti-Overlap Enhancements (< 768px)
+   ========================================================================== */
+@media (max-width: 767px) {
+  /* Prevent horizontal scroll leakage and nested clipping */
+  html, body {
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
+  }
+
+  /* Safe word-breaking to eliminate text collisions / ข้อความซ้อน */
+  h1, h2, h3, h4, p, span, div, a, button {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* Touch-friendly interactive targets (Apple HIG 44px / Material 48px baseline) */
+  button, select, input[type="text"], input[type="number"], textarea {
+    min-height: 40px;
+  }
+
+  /* Toast Container repositioning above Sticky Mobile Bottom Nav */
+  #toast-container {
+    bottom: 4.75rem !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    max-width: calc(100vw - 2rem) !important;
+  }
+
+  /* Smooth horizontal scrolling for chips and containers without clipping */
+  .custom-scrollbar {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Ensure modal cards stay scrollable and don't get trapped by mobile keyboards */
+  .animate-scale-in {
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+  }
+}
+
 /* Print CSS for Clean A4 / PDF Export */
 @media print {
   body {
