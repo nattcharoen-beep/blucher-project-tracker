@@ -279,8 +279,15 @@ function createDOM(htmlString) {
     setInterval: globalThis.setInterval,
     clearInterval: globalThis.clearInterval,
     console: globalThis.console,
+    addEventListener: () => {},
+    removeEventListener: () => {},
     Chart: class {
-      constructor() {}
+      constructor(ctx, config) {
+        this.ctx = ctx;
+        this.config = config;
+        this.data = config ? config.data : {};
+        this.options = config ? config.options : {};
+      }
       destroy() {}
       update() {}
     },
@@ -505,6 +512,68 @@ async function runAllTests() {
     pass('Test 3: 100% Button Handler Execution', `All 35+ onclick handlers, mobile nav transitions, and 6 simulation scenarios executed without error`);
   } catch (err) {
     fail('Test 3: 100% Button Handler Execution', err);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  // TEST 4: Mobile Zero-Overlap Responsive Chart & Real Data Placeholders
+  // ---------------------------------------------------------------------------
+  try {
+    // 1. Assert zero mock placeholders in frontend/index.html
+    const rawHtml = fs.readFileSync(htmlPath, 'utf8');
+    assert.ok(!rawHtml.includes('13.90M'), 'HTML must not contain mock 13.90M');
+    assert.ok(!rawHtml.includes('ต้นทุน 10.12M'), 'HTML must not contain mock 10.12M');
+    assert.ok(!rawHtml.includes('รวม 28 รายการ'), 'HTML must not contain mock รวม 28 รายการ');
+    assert.ok(!rawHtml.includes('>4,800,000<'), 'HTML must not contain mock 4,800,000');
+    assert.ok(!rawHtml.includes('>3,280,000<'), 'HTML must not contain mock 3,280,000');
+
+    // 2. Bar Chart Mobile Responsive Check (< 768px -> indexAxis: 'y' Horizontal Bar)
+    win.window.innerWidth = 360;
+    win.renderPortfolioDashboard();
+    assert.ok(win.appState.charts.bar, 'Bar chart must be created');
+    assert.strictEqual(
+      win.appState.charts.bar.config.options.indexAxis,
+      'y',
+      'Bar chart on mobile (<768px) MUST be horizontal (indexAxis: "y") to prevent label overlap'
+    );
+
+    // 3. Bar Chart Desktop Responsive Check (>= 768px -> indexAxis: 'x')
+    win.window.innerWidth = 1024;
+    win.renderPortfolioDashboard();
+    assert.strictEqual(
+      win.appState.charts.bar.config.options.indexAxis,
+      'x',
+      'Bar chart on desktop (>=768px) must use vertical indexAxis: "x"'
+    );
+    assert.strictEqual(
+      win.appState.charts.bar.config.options.scales.x.ticks.maxRotation,
+      25,
+      'Desktop bar chart ticks must rotate 25 degrees to prevent collision'
+    );
+
+    // 4. Donut Chart Combined Action Items + Defects Check
+    assert.ok(win.appState.charts.donut, 'Donut chart must be created');
+    const donutData = win.appState.charts.donut.config.data.datasets[0].data;
+    assert.ok(Array.isArray(donutData) && donutData.length > 0, 'Donut chart data must not be empty');
+
+    const totalBadge = win.document.getElementById('donutTotalBadge');
+    assert.ok(totalBadge, '#donutTotalBadge must exist');
+    assert.ok(totalBadge.innerText.includes('รวม'), '#donutTotalBadge must display dynamic total count');
+
+    const centerCount = win.document.getElementById('donutCenterCount');
+    assert.ok(centerCount, '#donutCenterCount must exist in donut overlay');
+
+    // 5. Mobile Cards Single Column on Mobile Check
+    const cardsContainer = win.document.getElementById('mobilePortfolioCards');
+    assert.ok(cardsContainer, '#mobilePortfolioCards must exist');
+    assert.ok(
+      cardsContainer.innerHTML.includes('grid-cols-1 sm:grid-cols-2'),
+      'Mobile portfolio cards grid must use grid-cols-1 sm:grid-cols-2 to prevent squeezing on mobile'
+    );
+
+    pass('Test 4: Mobile Zero-Overlap Chart & Real Placeholders', 'Bar chart indexAxis:y on mobile, dynamic donut status, 1-col mobile cards, 0 mock placeholders');
+  } catch (err) {
+    fail('Test 4: Mobile Zero-Overlap Chart & Real Placeholders', err);
   }
 
   // ---------------------------------------------------------------------------

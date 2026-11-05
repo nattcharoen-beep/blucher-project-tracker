@@ -1634,9 +1634,11 @@ function renderPortfolioKpis(projectsList = Object.values(appState.projects)) {
   let sumProgressPlanned = 0;
   let totalWorkers = 0;
   let totalPendingTasks = 0;
+  let totalCompletedTasks = 0;
   let totalOpenDefects = 0;
   let totalInProgressDefects = 0;
   let totalResolvedDefects = 0;
+  let boundLineGroupCount = 0;
 
   projectsList.forEach(p => {
     totalContractValue += Number(p.contractBudget) || 0;
@@ -1646,17 +1648,30 @@ function renderPortfolioKpis(projectsList = Object.values(appState.projects)) {
     sumProgressPlanned += Number(p.progressPlanned) || 0;
     totalWorkers += Number(p.manpowerToday) || 0;
 
+    if (p.lineGroupId) boundLineGroupCount++;
+
     if (Array.isArray(p.actionItems)) {
-      totalPendingTasks += p.actionItems.filter(a => !a.completed).length;
+      p.actionItems.forEach(a => {
+        if (a.completed || a.status === "DONE" || a.status === "RESOLVED") {
+          totalCompletedTasks++;
+        } else {
+          totalPendingTasks++;
+        }
+      });
     }
     if (Array.isArray(p.defects)) {
       p.defects.forEach(d => {
-        if (d.status === "pending") totalOpenDefects++;
-        else if (d.status === "in-progress") totalInProgressDefects++;
-        else if (d.status === "resolved") totalResolvedDefects++;
+        if (d.status === "pending" || d.status === "OPEN") totalOpenDefects++;
+        else if (d.status === "in-progress" || d.status === "REWORK") totalInProgressDefects++;
+        else if (d.status === "resolved" || d.status === "CLOSED") totalResolvedDefects++;
       });
     }
   });
+
+  const totalOpenItems = totalPendingTasks + totalOpenDefects;
+  const totalInProgressItems = totalInProgressDefects;
+  const totalCompletedItems = totalCompletedTasks + totalResolvedDefects;
+  const grandTotalItems = totalOpenItems + totalInProgressItems + totalCompletedItems;
 
   const avgProgress = totalProjects > 0 ? (sumProgressActual / totalProjects).toFixed(1) : "0.0";
   const avgPlanned = totalProjects > 0 ? (sumProgressPlanned / totalProjects).toFixed(1) : "0.0";
@@ -1695,12 +1710,28 @@ function renderPortfolioKpis(projectsList = Object.values(appState.projects)) {
   const elOpenDefects = document.getElementById("portfolioOpenDefects");
   if (elOpenDefects) elOpenDefects.innerText = `${totalOpenDefects} จุด`;
 
+  const elUrgent = document.getElementById("portfolioUrgentTasks");
+  if (elUrgent) {
+    elUrgent.innerText = totalPendingTasks > 0 ? `รอดำเนินการ ${totalPendingTasks} งาน` : "ไม่มีงานค้าง";
+    elUrgent.className = totalPendingTasks > 0 ? "text-rose-600 font-semibold text-[11px]" : "text-slate-600 text-[11px]";
+  }
+
   const elTotalWorkers = document.getElementById("portfolioTotalWorkers");
   if (elTotalWorkers) elTotalWorkers.innerText = totalWorkers;
 
   const elWorkersUnit = document.getElementById("portfolioWorkersUnit");
   if (elWorkersUnit) {
     elWorkersUnit.innerText = totalWorkers > 0 ? `นาย (${totalProjects} ไซต์)` : "นาย (รอรายงานจาก LINE)";
+  }
+
+  const elWorkerSub = document.getElementById("portfolioWorkerSub");
+  if (elWorkerSub) {
+    elWorkerSub.innerText = boundLineGroupCount > 0 ? `ผูกแล้ว ${boundLineGroupCount}/${totalProjects} กลุ่ม` : "ยังไม่มีรายงาน";
+  }
+
+  const elBoundCount = document.getElementById("inboxWebhookBoundCount");
+  if (elBoundCount) {
+    elBoundCount.innerText = `เชื่อมแล้ว ${boundLineGroupCount}/${totalProjects} กลุ่ม LINE`;
   }
 
   const unreadBadge = document.getElementById("headerUnreadBadge");
@@ -1715,7 +1746,7 @@ function renderPortfolioKpis(projectsList = Object.values(appState.projects)) {
     }
   }
 
-  return { totalProjects, totalContractValue, totalTargetCost, totalActualCost, avgProgress, avgPlanned, diffProgress, totalOpenDefects, totalInProgressDefects, totalResolvedDefects };
+  return { totalProjects, totalContractValue, totalTargetCost, totalActualCost, avgProgress, avgPlanned, diffProgress, totalOpenItems, totalInProgressItems, totalCompletedItems, grandTotalItems };
 }
 
 function renderPortfolioDashboard() {
@@ -1723,76 +1754,138 @@ function renderPortfolioDashboard() {
   const kpis = renderPortfolioKpis(projectsList);
 
   // Render Charts
-  renderPortfolioCharts(projectsList, kpis.totalOpenDefects, kpis.totalInProgressDefects, kpis.totalResolvedDefects);
+  renderPortfolioCharts(projectsList, kpis.totalOpenItems, kpis.totalInProgressItems, kpis.totalCompletedItems);
 
   // Render Portfolio Matrix Table & Mobile Cards
   renderPortfolioMatrixTable(projectsList);
 }
 
-function renderPortfolioCharts(projectsList, openDefects, inProgressDefects, resolvedDefects) {
+function renderPortfolioCharts(projectsList, openItems, inProgressItems, completedItems) {
   // Chart 1: Bar Chart (Plan vs Actual)
   const barCtx = document.getElementById("portfolioBarChart");
   if (barCtx) {
     if (appState.charts.bar) appState.charts.bar.destroy();
 
+    const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
     const labels = projectsList.map(p => CANONICAL_SHORT_NAMES[p.id] || p.name || p.id);
     const plannedData = projectsList.map(p => Number(p.progressPlanned) || 0);
     const actualData = projectsList.map(p => Number(p.progressActual) || 0);
 
-    appState.charts.bar = new Chart(barCtx, {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: "แผนงาน (%)",
-            data: plannedData,
-            backgroundColor: "#cbd5e1",
-            borderRadius: 6,
-            barPercentage: 0.65
+    if (isMobile) {
+      // Horizontal Bar Chart on Mobile (< 768px): indexAxis = "y" (ชื่อโครงการเรียงคนละบรรทัด ไม่ซ้อนทับ 100%)
+      appState.charts.bar = new Chart(barCtx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "แผนงาน (%)",
+              data: plannedData,
+              backgroundColor: "#cbd5e1",
+              borderRadius: 4,
+              barPercentage: 0.7,
+              categoryPercentage: 0.8
+            },
+            {
+              label: "ผลงานจริง (%)",
+              data: actualData,
+              backgroundColor: "#0284c7",
+              borderRadius: 4,
+              barPercentage: 0.7,
+              categoryPercentage: 0.8
+            }
+          ]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => ` ${context.dataset.label}: ${context.raw}%`
+              }
+            }
           },
-          {
-            label: "ผลงานจริง (%)",
-            data: actualData,
-            backgroundColor: "#0284c7",
-            borderRadius: 6,
-            barPercentage: 0.65
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (context) => ` ${context.dataset.label}: ${context.raw}%`
+          scales: {
+            x: {
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                callback: (v) => v + "%",
+                font: { family: "Prompt", size: 10 }
+              },
+              grid: { color: "#f1f5f9" }
+            },
+            y: {
+              ticks: {
+                font: { family: "Kanit", size: 11 },
+                autoSkip: false
+              },
+              grid: { display: false }
             }
           }
+        }
+      });
+    } else {
+      // Vertical Bar Chart on Desktop (>= 768px): indexAxis = "x" with rotated labels
+      appState.charts.bar = new Chart(barCtx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "แผนงาน (%)",
+              data: plannedData,
+              backgroundColor: "#cbd5e1",
+              borderRadius: 6,
+              barPercentage: 0.65
+            },
+            {
+              label: "ผลงานจริง (%)",
+              data: actualData,
+              backgroundColor: "#0284c7",
+              borderRadius: 6,
+              barPercentage: 0.65
+            }
+          ]
         },
-        scales: {
-          y: {
-            beginAtZero: true,
-            max: 100,
-            ticks: {
-              callback: (v) => v + "%",
-              font: { family: "Prompt", size: 10 }
-            },
-            grid: { color: "#f1f5f9" }
+        options: {
+          indexAxis: "x",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => ` ${context.dataset.label}: ${context.raw}%`
+              }
+            }
           },
-          x: {
-            ticks: {
-              font: { family: "Prompt", size: 11 },
-              maxRotation: 0,
-              minRotation: 0,
-              autoSkip: false
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                callback: (v) => v + "%",
+                font: { family: "Prompt", size: 10 }
+              },
+              grid: { color: "#f1f5f9" }
             },
-            grid: { display: false }
+            x: {
+              ticks: {
+                font: { family: "Prompt", size: 11 },
+                maxRotation: 25,
+                minRotation: 0,
+                autoSkip: false
+              },
+              grid: { display: false }
+            }
           }
         }
-      }
-    });
+      });
+    }
   }
 
   // Chart 2: Donut Chart (Defect / Action status)
@@ -1800,13 +1893,40 @@ function renderPortfolioCharts(projectsList, openDefects, inProgressDefects, res
   if (donutCtx) {
     if (appState.charts.donut) appState.charts.donut.destroy();
 
+    const grandTotal = (openItems || 0) + (inProgressItems || 0) + (completedItems || 0);
+
+    const elTotalBadge = document.getElementById("donutTotalBadge");
+    if (elTotalBadge) elTotalBadge.innerText = `รวม ${grandTotal} รายการ`;
+
+    const elStatOpen = document.getElementById("statDefectOpen");
+    if (elStatOpen) elStatOpen.innerText = openItems || 0;
+    const elStatProg = document.getElementById("statDefectInProgress");
+    if (elStatProg) elStatProg.innerText = inProgressItems || 0;
+    const elStatClosed = document.getElementById("statDefectClosed");
+    if (elStatClosed) elStatClosed.innerText = completedItems || 0;
+
+    const elCenterCount = document.getElementById("donutCenterCount");
+    if (elCenterCount) elCenterCount.innerText = grandTotal;
+    const elCenterSub = document.getElementById("donutCenterSub");
+    if (elCenterSub) elCenterSub.innerText = grandTotal > 0 ? "งานสั่งการ & Defect" : "ไม่มีงานค้าง";
+
+    const donutData = grandTotal > 0
+      ? [openItems || 0, inProgressItems || 0, completedItems || 0]
+      : [1];
+    const donutColors = grandTotal > 0
+      ? ["#f43f5e", "#f59e0b", "#10b981"]
+      : ["#10b981"];
+    const donutLabels = grandTotal > 0
+      ? ["รอดำเนินการ", "กำลังดำเนินการ", "เสร็จสิ้นแล้ว"]
+      : ["ไม่มีงานค้าง / ปกติ 100%"];
+
     appState.charts.donut = new Chart(donutCtx, {
       type: "doughnut",
       data: {
-        labels: ["รอการแก้ไข", "กำลังดำเนินการซ่อม", "แก้ไขเสร็จสิ้น"],
+        labels: donutLabels,
         datasets: [{
-          data: [openDefects, inProgressDefects, resolvedDefects],
-          backgroundColor: ["#f43f5e", "#f59e0b", "#10b981"],
+          data: donutData,
+          backgroundColor: donutColors,
           borderWidth: 2,
           borderColor: "#ffffff"
         }]
@@ -1816,17 +1936,13 @@ function renderPortfolioCharts(projectsList, openDefects, inProgressDefects, res
         maintainAspectRatio: false,
         cutout: "70%",
         plugins: {
-          legend: { display: false }
+          legend: { display: false },
+          tooltip: {
+            enabled: grandTotal > 0
+          }
         }
       }
     });
-
-    const elStatOpen = document.getElementById("statDefectOpen");
-    if (elStatOpen) elStatOpen.innerText = openDefects;
-    const elStatProg = document.getElementById("statDefectInProgress");
-    if (elStatProg) elStatProg.innerText = inProgressDefects;
-    const elStatClosed = document.getElementById("statDefectClosed");
-    if (elStatClosed) elStatClosed.innerText = resolvedDefects;
   }
 }
 
@@ -1974,8 +2090,8 @@ function renderPortfolioMatrixTable(projectsInput = "") {
               ${escapeHtml(p.coreSpecs || 'มาตรฐาน มอก. / สเปกบลูเคอร์')}
             </div>
 
-            <!-- 2-col Metrics Grid -->
-            <div class="grid grid-cols-2 gap-2.5 pt-1 text-xs">
+            <!-- 2-col Metrics Grid (1-col on mobile <640px to prevent text squeezing) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-xs">
               <!-- Col 1: Financials -->
               <div class="bg-slate-50/70 p-2.5 rounded-xl border border-slate-100 space-y-1">
                 <div class="text-[10px] text-slate-600">งบสัญญา: <span class="font-bold font-kanit text-slate-900">${budgetMobile}</span></div>
@@ -4224,5 +4340,23 @@ if (typeof window !== "undefined") {
     renderWbsTable,
     renderMasterDossier,
     renderDossierTab
+  });
+}
+
+
+// Responsive Breakpoint Listener: Auto-switch between Horizontal (Mobile) and Vertical (Desktop) Bar Chart
+let lastViewportWidth = typeof window !== "undefined" ? window.innerWidth : 1024;
+let resizeDebounceTimer = null;
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeDebounceTimer);
+    resizeDebounceTimer = setTimeout(() => {
+      const currentWidth = window.innerWidth;
+      const crossedBreakpoint = (lastViewportWidth < 768 && currentWidth >= 768) || (lastViewportWidth >= 768 && currentWidth < 768);
+      lastViewportWidth = currentWidth;
+      if (crossedBreakpoint && appState.currentView === "portfolio") {
+        renderPortfolioDashboard();
+      }
+    }, 150);
   });
 }

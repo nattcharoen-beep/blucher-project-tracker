@@ -233,7 +233,7 @@
               </div>
             </div>
             <div class="mt-3 flex items-baseline gap-2">
-              <h3 id="portfolioTotalValue" class="text-2xl font-bold text-slate-900 font-kanit">13.90M</h3>
+              <h3 id="portfolioTotalValue" class="text-2xl font-bold text-slate-900 font-kanit">0.00M</h3>
               <span class="text-xs text-slate-600">บาท</span>
             </div>
             <div class="mt-2.5 flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-100">
@@ -241,7 +241,7 @@
                 <i class="fa-solid fa-circle-check"></i>
                 <span id="portfolioActiveCount">7 โครงการ</span>
               </span>
-              <span id="portfolioTargetCost" class="text-[11px] text-slate-600">ต้นทุน 10.12M</span>
+              <span id="portfolioTargetCost" class="text-[11px] text-slate-600">ต้นทุน รอระบุในไฟล์ Cost</span>
             </div>
           </div>
 
@@ -254,12 +254,12 @@
               </div>
             </div>
             <div class="mt-3 flex items-baseline gap-2">
-              <h3 id="portfolioAvgProgress" class="text-2xl font-bold text-slate-900 font-kanit">56.4%</h3>
+              <h3 id="portfolioAvgProgress" class="text-2xl font-bold text-slate-900 font-kanit">0.0%</h3>
               <span id="portfolioPlanDiff" class="text-xs font-medium text-emerald-600">ตามแผนงาน</span>
             </div>
             <!-- Progress Bar -->
             <div class="mt-2.5 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div id="portfolioProgressBar" class="bg-gradient-to-r from-sky-500 to-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 56.4%"></div>
+              <div id="portfolioProgressBar" class="bg-gradient-to-r from-sky-500 to-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
             </div>
           </div>
 
@@ -271,13 +271,13 @@
                 <i class="fa-solid fa-triangle-exclamation text-base"></i>
               </div>
             </div>
-            <div class="mt-3 flex items-baseline gap-2">
+            <div class="mt-3 flex flex-wrap items-baseline gap-2">
               <h3 id="portfolioPendingTasks" class="text-2xl font-bold text-slate-900 font-kanit">0 <span class="text-sm font-normal text-slate-600">งาน</span></h3>
               <span class="text-xs text-slate-600">| Defect รอซ่อม:</span>
               <span id="portfolioOpenDefects" class="text-sm font-bold text-emerald-600">0 จุด</span>
             </div>
             <div class="mt-2.5 flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-100">
-              <span class="text-[11px] text-slate-600">รอเชื่อมบอท LINE ดักจับคำสั่งการ</span>
+              <span class="text-[11px] text-slate-600">ดักจับคำสั่งการจาก LINE อัตโนมัติ</span>
               <span id="portfolioUrgentTasks" class="text-slate-600 text-[11px]">ไม่มีงานค้าง</span>
             </div>
           </div>
@@ -310,7 +310,7 @@
           
           <!-- Chart 1: Bar Chart of 7 Projects (Plan vs Actual) -->
           <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200 card-elevation">
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
               <div>
                 <h4 class="text-sm font-bold font-kanit text-slate-800 flex items-center gap-2">
                   <i class="fa-solid fa-chart-column text-sky-600"></i>
@@ -318,39 +318,43 @@
                 </h4>
                 <p class="text-xs text-slate-600">อัปเดตตามรายงานและเอกสารล่าสุด</p>
               </div>
-              <div class="flex items-center gap-3 text-xs font-medium">
-                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-slate-300"></span>แผนงาน (%)</span>
-                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-sky-500"></span>ผลงานจริง (%)</span>
+              <div class="flex flex-wrap items-center gap-3 text-xs font-medium flex-shrink-0">
+                <span class="flex items-center gap-1.5 whitespace-nowrap flex-shrink-0"><span class="w-3 h-3 rounded-sm bg-slate-300 flex-shrink-0"></span><span>แผนงาน (%)</span></span>
+                <span class="flex items-center gap-1.5 whitespace-nowrap flex-shrink-0"><span class="w-3 h-3 rounded-sm bg-sky-500 flex-shrink-0"></span><span>ผลงานจริง (%)</span></span>
               </div>
             </div>
-            <div class="h-64 relative">
+            <div class="h-80 sm:h-64 relative">
               <canvas id="portfolioBarChart"></canvas>
             </div>
           </div>
 
           <!-- Chart 2: Donut Chart of Defects & Action Items Status -->
           <div class="bg-white rounded-2xl p-5 border border-slate-200 card-elevation flex flex-col justify-between">
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
               <h4 class="text-sm font-bold font-kanit text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-chart-pie text-cyan-600"></i>
                 สัดส่วนสถานะงานสั่งการ & Defect
               </h4>
-              <span class="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-600 rounded-md font-medium">รวม 28 รายการ</span>
+              <span id="donutTotalBadge" class="px-2.5 py-0.5 text-[10px] bg-slate-100 text-slate-700 rounded-md font-semibold whitespace-nowrap flex-shrink-0">รวม 1 รายการ</span>
             </div>
             <div class="h-48 relative flex items-center justify-center my-auto">
               <canvas id="portfolioDonutChart"></canvas>
+              <div id="donutCenterLabel" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span id="donutCenterCount" class="text-2xl font-bold font-kanit text-slate-800">1</span>
+                <span id="donutCenterSub" class="text-[10px] text-slate-500 font-medium">รายการทั้งหมด</span>
+              </div>
             </div>
             <div class="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 text-center text-xs">
               <div class="bg-rose-50 p-2 rounded-xl">
-                <p class="text-rose-600 font-bold font-kanit text-base" id="statDefectOpen">6</p>
-                <p class="text-[10px] text-slate-600 font-medium">รอการแก้ไข</p>
+                <p class="text-rose-600 font-bold font-kanit text-base" id="statDefectOpen">1</p>
+                <p class="text-[10px] text-slate-600 font-medium">รอดำเนินการ</p>
               </div>
               <div class="bg-amber-50 p-2 rounded-xl">
-                <p class="text-amber-600 font-bold font-kanit text-base" id="statDefectInProgress">8</p>
-                <p class="text-[10px] text-slate-600 font-medium">กำลังซ่อม</p>
+                <p class="text-amber-600 font-bold font-kanit text-base" id="statDefectInProgress">0</p>
+                <p class="text-[10px] text-slate-600 font-medium">กำลังดำเนินการ</p>
               </div>
               <div class="bg-emerald-50 p-2 rounded-xl">
-                <p class="text-emerald-600 font-bold font-kanit text-base" id="statDefectClosed">14</p>
+                <p class="text-emerald-600 font-bold font-kanit text-base" id="statDefectClosed">0</p>
                 <p class="text-[10px] text-slate-600 font-medium">เสร็จสิ้นแล้ว</p>
               </div>
             </div>
@@ -501,19 +505,19 @@
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 mt-4 border-t border-white/10 w-full relative z-10">
             <div class="bg-black/30 p-2.5 sm:p-3 rounded-xl border border-white/10 text-center">
               <p class="text-[10px] text-slate-300">งบสัญญา (รวม VAT)</p>
-              <p id="projDetailBudget" class="text-sm sm:text-base font-bold font-kanit text-white mt-0.5">4,800,000</p>
+              <p id="projDetailBudget" class="text-sm sm:text-base font-bold font-kanit text-white mt-0.5">รอระบุในสัญญา ปร.4</p>
             </div>
             <div class="bg-black/30 p-2.5 sm:p-3 rounded-xl border border-white/10 text-center">
               <p class="text-[10px] text-slate-300">ต้นทุนเป้าหมาย</p>
-              <p id="projDetailTargetCost" class="text-sm sm:text-base font-bold font-kanit text-slate-200 mt-0.5">3,280,000</p>
+              <p id="projDetailTargetCost" class="text-sm sm:text-base font-bold font-kanit text-slate-200 mt-0.5">รอระบุในไฟล์ Cost</p>
             </div>
             <div class="bg-black/30 p-2.5 sm:p-3 rounded-xl border border-white/10 text-center">
               <p class="text-[10px] text-slate-300">จ่ายจริงแล้ว</p>
-              <p id="projDetailActualCost" class="text-sm sm:text-base font-bold font-kanit text-sky-400 mt-0.5">2,840,000</p>
+              <p id="projDetailActualCost" class="text-sm sm:text-base font-bold font-kanit text-sky-400 mt-0.5">0.00</p>
             </div>
             <div class="bg-emerald-950/40 p-2.5 sm:p-3 rounded-xl border border-emerald-500/30 text-center">
               <p class="text-[10px] text-emerald-300 font-medium">กำไรคาดการณ์</p>
-              <p id="projDetailProfit" class="text-sm sm:text-base font-bold font-kanit text-emerald-400 mt-0.5">1,520,000</p>
+              <p id="projDetailProfit" class="text-sm sm:text-base font-bold font-kanit text-emerald-400 mt-0.5">รอระบุในไฟล์ Cost</p>
             </div>
           </div>
         </div>
@@ -736,23 +740,23 @@
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
               <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
                 <p class="text-xs text-slate-600">วงเงินสัญญา (รวม VAT)</p>
-                <p id="dossierContractBudget" class="text-xl font-bold font-kanit text-slate-900 mt-1">4,800,000</p>
+                <p id="dossierContractBudget" class="text-xl font-bold font-kanit text-slate-900 mt-1">-</p>
                 <span class="text-[10px] text-slate-600">บาท</span>
               </div>
               <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
                 <p class="text-xs text-slate-600">ต้นทุนเป้าหมาย (Cost Target)</p>
-                <p id="dossierTargetCost" class="text-xl font-bold font-kanit text-slate-800 mt-1">3,280,000</p>
+                <p id="dossierTargetCost" class="text-xl font-bold font-kanit text-slate-800 mt-1">-</p>
                 <span class="text-[10px] text-slate-600">บาท</span>
               </div>
               <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
                 <p class="text-xs text-slate-600">จ่ายจริงแล้ว (Actual Spent)</p>
-                <p id="dossierActualSpent" class="text-xl font-bold font-kanit text-sky-600 mt-1">2,840,000</p>
+                <p id="dossierActualSpent" class="text-xl font-bold font-kanit text-sky-600 mt-1">0</p>
                 <span class="text-[10px] text-slate-600">บาท</span>
               </div>
               <div class="bg-emerald-50 p-3.5 rounded-xl border border-emerald-100">
                 <p class="text-xs text-emerald-800 font-semibold">กำไรคาดการณ์ (Margin)</p>
-                <p id="dossierExpectedProfit" class="text-xl font-bold font-kanit text-emerald-600 mt-1">1,520,000</p>
-                <span id="dossierMarginPct" class="text-[10px] text-emerald-700 font-bold">Margin 31.7%</span>
+                <p id="dossierExpectedProfit" class="text-xl font-bold font-kanit text-emerald-600 mt-1">-</p>
+                <span id="dossierMarginPct" class="text-[10px] text-emerald-700 font-bold">Margin -</span>
               </div>
             </div>
           </div>
@@ -916,7 +920,7 @@
         <div class="p-3 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-600 flex items-center justify-between">
           <span class="flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            7 กลุ่มผูก Webhook แล้ว
+            <span id="inboxWebhookBoundCount">7 กลุ่มผูก Webhook แล้ว</span>
           </span>
           <span class="text-[10px] text-slate-500 font-medium">อับดุล สแตนด์บาย</span>
         </div>
@@ -1507,6 +1511,6 @@
   </div>
 
   <!-- Application Logic JavaScript -->
-  <script src="app.js?v=20261105-v7"></script>
+  <script src="app.js?v=20261105-v8"></script>
 </body>
 </html>
