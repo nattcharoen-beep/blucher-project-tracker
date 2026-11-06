@@ -364,12 +364,19 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
   const status = p.status || 'IN_PROGRESS';
   const statusLabel = p.statusLabel || getProjectStatusLabel(status);
 
-  // Group ID & Group Name resolution (with guaranteed Lumpini real binding)
+  // Group ID & Group Name resolution (with guaranteed real bindings for all 5 bound groups)
   let lineGroupId = p.line_group_id || null;
   let lineGroupName = p.line_group_name || null;
-  if (p.id === 'PRJ-LUMPINI' || projectId === 'lumpini') {
-    lineGroupId = lineGroupId || 'C8802d323f74b1be554a56282968465ff';
-    lineGroupName = lineGroupName || 'BC ศนท ลุมพินี (5)';
+  const BOUND_LINE_GROUPS = {
+    'PRJ-LUMPINI': { id: 'C8802d323f74b1be554a56282968465ff', name: 'BC ศนท ลุมพินี (5)' },
+    'PRJ-SAPHANSUNG': { id: 'C773d8aa2bba95b271bea74ef6d09fa28', name: 'BC ศนท. สะพานสูง' },
+    'PRJ-BANGNA': { id: 'C76f880d8c53f1af8b762c566c6406b6f', name: 'BC ศนท.บางนา' },
+    'PRJ-BANGKAE': { id: 'Ca90ad2bb40e2e15f5a2b1c15af037864', name: 'BC ศนท. บางแค' },
+    'PRJ-PRACHIN': { id: 'Cee438b9b0b64bfcfef77e97cb7f551b1', name: 'BC อบต ปราจีน' }
+  };
+  if (BOUND_LINE_GROUPS[p.id]) {
+    lineGroupId = lineGroupId || BOUND_LINE_GROUPS[p.id].id;
+    lineGroupName = lineGroupName || BOUND_LINE_GROUPS[p.id].name;
   }
 
   // Match seed project for static photos, chatHistory, and fallback child records
