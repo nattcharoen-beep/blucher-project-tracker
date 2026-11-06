@@ -39312,6 +39312,14 @@ function mergeBackendBootstrap(data) {
       if (Array.isArray(rawItem.materials) && rawItem.materials.length > 0) existing.materials = rawItem.materials;
       if (Array.isArray(rawItem.files) && rawItem.files.length > 0) existing.files = rawItem.files;
       if (Array.isArray(rawItem.chatHistory)) existing.chatHistory = rawItem.chatHistory;
+      if (rawItem.lastMessageText) {
+        existing.lastMessageText = rawItem.lastMessageText;
+      } else if (Array.isArray(existing.chatHistory) && existing.chatHistory.length > 0) {
+        const lastMsg = existing.chatHistory[existing.chatHistory.length - 1];
+        existing.lastMessageText = `${lastMsg.sender}: ${(lastMsg.text || "").slice(0, 70)}`;
+        existing.lastMessageTime = lastMsg.time || existing.lastMessageTime;
+      }
+      if (rawItem.lastMessageTime) existing.lastMessageTime = rawItem.lastMessageTime;
     } else {
       // Newly onboarded project (not in MASTER_PROJECTS)
       const budget = Number(rawItem.contractBudget ?? rawItem.contract_budget ?? rawItem.budget) || 0;
