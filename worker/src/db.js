@@ -525,36 +525,68 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
     }
   }
 
-  // Build combined chatHistory
+  // Helper: Format UTC ISO timestamp into Bangkok (+07:00) HH:mm and Thai date string
+  const toBangkokTime = (isoOrDateStr, fallbackLogDate = '') => {
+    const raw = String(isoOrDateStr || '').trim();
+    const thaiMatch = raw.match(/(\d{1,2})\s+([^\s]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+    if (thaiMatch) {
+      const hh = (thaiMatch[4] || '08').padStart(2, '0');
+      const mm = (thaiMatch[5] || '00').padStart(2, '0');
+      return { time: `${hh}:${mm}`, timestamp: raw };
+    }
+    if (/^\d{4}-\d{2}-\d{2}T/.test(raw) || /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(raw)) {
+      const normalized = raw.includes('T') ? (raw.endsWith('Z') || raw.includes('+') ? raw : raw + 'Z') : raw.replace(' ', 'T') + 'Z';
+      const d = new Date(normalized);
+      if (!isNaN(d.getTime())) {
+        // Shift +7 hours for Asia/Bangkok
+        const bkk = new Date(d.getTime() + 7 * 3600 * 1000);
+        const hh = String(bkk.getUTCHours()).padStart(2, '0');
+        const mm = String(bkk.getUTCMinutes()).padStart(2, '0');
+        const day = String(bkk.getUTCDate()).padStart(2, '0');
+        const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        const mon = months[bkk.getUTCMonth()] || 'พ.ย.';
+        const beYear = bkk.getUTCFullYear() + 543;
+        return { time: `${hh}:${mm}`, timestamp: `${day} ${mon} ${beYear} ${hh}:${mm}` };
+      }
+    }
+    const fbMatch = String(fallbackLogDate || '').match(/(\d{1,2}:\d{2})/);
+    return {
+      time: fbMatch ? fbMatch[1] : ((raw.slice(11, 16)) || '08:00'),
+      timestamp: fallbackLogDate || raw || ''
+    };
+  };
+
+  // Build combined chatHistory (ONLY deduplicate by id, NEVER drop messages with identical text!)
   const combinedChat = [...seedChat];
   for (const l of pLogs) {
-    if (!combinedChat.some(c => c.id === l.id || c.text === (l.summary || l.text))) {
-      combinedChat.push({
-        id: l.id,
-        sender: l.sender_name || 'ช่างหน้างาน (LINE)',
-        text: l.summary || l.text || '',
-        time: (l.created_at || '').slice(11, 16) || '08:00',
-        timestamp: l.log_date || l.created_at || '',
-        photoUrl: l.photo_url || null,
-        photoCaption: l.summary || '',
-        savedRelPath: l.local_photo_path || '',
-        isBoss: (l.sender_name || '').includes('นัท') || (l.sender_name || '').includes('Admin'),
-        isBot: (l.sender_name || '').includes('อับดุล') || (l.sender_name || '').includes('System')
-      });
+    const existingIdx = combinedChat.findIndex(c => c.id === l.id);
+    const bkkInfo = toBangkokTime(l.created_at || l.log_date, l.log_date);
+    const senderStr = l.sender_name || 'ช่างหน้างาน (LINE)';
+    const chatObj = {
+      id: l.id,
+      sender: senderStr,
+      text: l.summary || l.text || '',
+      time: bkkInfo.time,
+      timestamp: bkkInfo.timestamp,
+      created_at: l.created_at || l.log_date || '',
+      photoUrl: l.photo_url || null,
+      photoCaption: l.summary || '',
+      savedRelPath: l.local_photo_path || '',
+      isBoss: /นัท|natt|admin|เฮีย/i.test(senderStr),
+      isBot: /อับดุล|blucherlinechatbot|system/i.test(senderStr)
+    };
+    if (existingIdx >= 0) {
+      combinedChat[existingIdx] = { ...combinedChat[existingIdx], ...chatObj };
+    } else {
+      combinedChat.push(chatObj);
     }
   }
 
-  // Sort combinedChat strictly in chronological order:
-  // 1. If both items have sequential message IDs (e.g. MSG-LMP-01 ... MSG-LMP-23), sort by numeric suffix.
-  // 2. Otherwise sort by actual parsed timestamp (handling Thai dates like '28 ต.ค. 2569 11:56' vs '05 พ.ย. 2569 08:08' and ISO dates).
+  // Sort combinedChat strictly in ascending chronological order (oldest at top -> newest at bottom):
   const parseChatDate = (msg) => {
     if (!msg) return 0;
-    const raw = msg.created_at || msg.timestamp || msg.date || '';
-    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
-      const t = new Date(raw).getTime();
-      if (!isNaN(t) && t > 0) return t;
-    }
-    const thaiMatch = String(raw).match(/(\d{1,2})\s+([^\s]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+    const thaiRaw = String(msg.timestamp || msg.date || msg.log_date || '');
+    const thaiMatch = thaiRaw.match(/(\d{1,2})\s+([^\s]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
     if (thaiMatch) {
       const day = thaiMatch[1].padStart(2, '0');
       const monthStr = thaiMatch[2];
@@ -568,27 +600,35 @@ export function formatProject(p, allWbs = [], allActions = [], allDefects = [], 
         'ก.ย.': '09', 'ต.ค.': '10', 'พ.ย.': '11', 'ธ.ค.': '12'
       };
       const month = thaiMonths[monthStr] || '01';
-      const isoStr = `${ceYear}-${month}-${day}T${hour}:${min}:00`;
+      // Convert Bangkok local time to UTC epoch ms
+      const isoStr = `${ceYear}-${month}-${day}T${hour}:${min}:00+07:00`;
       const t = new Date(isoStr).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    const isoRaw = String(msg.created_at || msg.timestamp || msg.date || '');
+    if (/^\d{4}-\d{2}-\d{2}/.test(isoRaw)) {
+      const normalized = isoRaw.includes('T') ? (isoRaw.endsWith('Z') || isoRaw.includes('+') ? isoRaw : isoRaw + 'Z') : isoRaw;
+      const t = new Date(normalized).getTime();
       if (!isNaN(t) && t > 0) return t;
     }
     return 0;
   };
 
   combinedChat.sort((a, b) => {
-    const matchA = (a.id || '').match(/MSG-[A-Z]+-(\d+)/i);
-    const matchB = (b.id || '').match(/MSG-[A-Z]+-(\d+)/i);
+    const matchA = (a.id || '').match(/^MSG-[A-Z]+-(\d+)$/i);
+    const matchB = (b.id || '').match(/^MSG-[A-Z]+-(\d+)$/i);
     if (matchA && matchB) {
       return parseInt(matchA[1], 10) - parseInt(matchB[1], 10);
     }
+    // Always place historical MSG-* before live LOG-* webhook entries if dates are missing
+    if (matchA && !matchB && String(b.id || '').startsWith('LOG-')) return -1;
+    if (!matchA && matchB && String(a.id || '').startsWith('LOG-')) return 1;
     const timeA = parseChatDate(a);
     const timeB = parseChatDate(b);
     if (timeA > 0 && timeB > 0 && timeA !== timeB) {
       return timeA - timeB;
     }
-    if (matchA && !matchB) return -1;
-    if (!matchA && matchB) return 1;
-    return (a.created_at || a.id || '').localeCompare(b.created_at || b.id || '');
+    return String(a.created_at || a.id || '').localeCompare(String(b.created_at || b.id || ''));
   });
 
   return {

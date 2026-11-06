@@ -363,13 +363,21 @@ export async function processSingleLineEvent(event, env) {
       const text = (message.text || '').trim();
       const projectId = project ? project.id : 'PRJ-UNASSIGNED';
 
-      // Fetch sender display name if possible
+      // Fetch sender display name (Group Member API first for group chats, then Profile API fallback)
       let senderName = 'สมาชิกในกลุ่ม';
       if (userId && channelAccessToken) {
         try {
-          const profRes = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+          const profUrl = (isGroup && groupId && groupId !== userId)
+            ? `https://api.line.me/v2/bot/group/${groupId}/member/${userId}`
+            : `https://api.line.me/v2/bot/profile/${userId}`;
+          let profRes = await fetch(profUrl, {
             headers: { Authorization: `Bearer ${channelAccessToken}` }
           });
+          if (!profRes.ok && isGroup) {
+            profRes = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+              headers: { Authorization: `Bearer ${channelAccessToken}` }
+            });
+          }
           if (profRes.ok) {
             const profData = await profRes.json();
             if (profData.displayName) senderName = profData.displayName;
@@ -551,9 +559,8 @@ export async function processSingleLineEvent(event, env) {
               // Update initialLog category and details instead of creating duplicate log!
               if (initialLog && initialLog.id) {
                 if (extraction.category === 'PAYMENT_LOG') {
-                  const amtStr = extraction.amount ? `${Number(extraction.amount).toLocaleString()} บาท` : '';
-                  await d1.prepare('UPDATE daily_logs SET summary = ?, category = ? WHERE id = ?')
-                    .bind(`💰 ${extraction.title || text} (ยอดเงิน: ${amtStr || '-'})`, 'PAYMENT_LOG', initialLog.id)
+                  await d1.prepare('UPDATE daily_logs SET category = ? WHERE id = ?')
+                    .bind('PAYMENT_LOG', initialLog.id)
                     .run();
                   if (extraction.amount && Number(extraction.amount) > 0) {
                     await d1.prepare('UPDATE projects SET actual_cost = actual_cost + ?, updated_at = ? WHERE id = ?')
@@ -561,9 +568,8 @@ export async function processSingleLineEvent(event, env) {
                       .run();
                   }
                 } else {
-                  await d1.prepare('UPDATE daily_logs SET summary = ?, area_sqm_done = ?, worker_count = ?, category = ? WHERE id = ?')
+                  await d1.prepare('UPDATE daily_logs SET area_sqm_done = ?, worker_count = ?, category = ? WHERE id = ?')
                     .bind(
-                      extraction.summary || extraction.title || text,
                       Number(extraction.areaSqm) || 0,
                       parseInt(extraction.workerCount || 0, 10),
                       extraction.category || 'WORK_REPORT',
@@ -649,7 +655,7 @@ export async function processSingleLineEvent(event, env) {
         if (/(defect|ดีเฟก|ตำหนิ|ฟองอากาศ|รอยนูน|รอยแตก|ขูดซ่อม|แก้|สลับขั้ว|แต้ม)/i.test(text)) {
           await createDefect(d1, {
             project_id: projectId,
-            title: text.slice(0, 80),
+            title: text,
             description: text,
             severity: 'HIGH',
             status: 'OPEN',
@@ -661,7 +667,7 @@ export async function processSingleLineEvent(event, env) {
         if (/(อย่าลืม|ช่วยตรวจ|สั่ง|ให้ส่ง|ด่วน|ก่อนลง|ประสานงาน|นำส่ง)/i.test(text)) {
           await createActionItem(d1, {
             project_id: projectId,
-            title: text.slice(0, 80),
+            title: text,
             raw_message: text,
             status: 'OPEN',
             assigned_by: 'พี่นัท'
@@ -718,20 +724,34 @@ export async function processSingleLineEvent(event, env) {
         console.warn('Failed to fetch image binary from LINE:', e.message);
       }
 
+      let imgSenderName = 'ช่างหน้างาน (LINE)';
+      if (userId && channelAccessToken) {
+        try {
+          const profUrl = (isGroup && groupId && groupId !== userId)
+            ? `https://api.line.me/v2/bot/group/${groupId}/member/${userId}`
+            : `https://api.line.me/v2/bot/profile/${userId}`;
+          const profRes = await fetch(profUrl, { headers: { Authorization: `Bearer ${channelAccessToken}` } });
+          if (profRes.ok) {
+            const profData = await profRes.json();
+            if (profData.displayName) imgSenderName = profData.displayName;
+          }
+        } catch (e) {}
+      }
+
       await savePhotoBuffer(d1, {
         group_id: groupId,
         project_id: projectId,
         message_id: messageId,
         photo_data: imgBase64 || message.contentProvider?.originalContentUrl || photoProxyUrl,
-        sender_name: 'ช่างหน้างาน (LINE)'
+        sender_name: imgSenderName
       });
 
       const photoLog = await createDailyLog(d1, {
         project_id: projectId,
-        summary: '📷 ได้รับรูปภาพหน้างานจากกลุ่ม LINE',
+        summary: '📷 ส่งรูปภาพในกลุ่ม LINE',
         worker_count: 0,
         area_sqm_done: 0,
-        sender_name: 'ช่างหน้างาน (LINE)',
+        sender_name: imgSenderName,
         photo_url: photoProxyUrl,
         category: 'SITE_PHOTO'
       });
