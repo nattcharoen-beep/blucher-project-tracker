@@ -1,0 +1,2 @@
+DELETE FROM daily_logs WHERE id LIKE 'MSG-%';
+DELETE FROM daily_logs WHERE id IN ('LOG-ummp7eb', 'LOG-ndrxrwp', 'LOG-z7c9odo', 'LOG-m3oo7m4', 'LOG-hhcwcdn', 'LOG-sy0dwhj', 'LOG-icj1v8b', 'LOG-rtio59o');
